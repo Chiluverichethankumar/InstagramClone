@@ -13,3 +13,4 @@ click>=8.3
 tzdata>=2025.2
 supabase
 supabase-auth
+dj_database_url
