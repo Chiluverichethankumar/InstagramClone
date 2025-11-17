@@ -5,7 +5,8 @@ from django.contrib.sessions.models import Session
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-User = get_user_model()
+User = get_user_model()   # ← ONLY THIS LINE — CLEAN & PERFECT
+
 
 def get_user_from_session_key(session_key: str):
     """
@@ -16,8 +17,7 @@ def get_user_from_session_key(session_key: str):
         return None
     try:
         session = Session.objects.get(session_key=session_key)
-        if session.expire_date and session.expire_date < timezone.now():
-            # expired
+        if session.expire_date < timezone.now():
             session.delete()
             return None
         data = session.get_decoded()
@@ -28,11 +28,10 @@ def get_user_from_session_key(session_key: str):
     except (Session.DoesNotExist, User.DoesNotExist):
         return None
 
+
 class SessionIDAuthentication(BaseAuthentication):
     """
-    Authenticates with header X-Session-ID -> Django session key.
-    Returns (user, None) or raises AuthenticationFailed.
-    If header missing, return None to let other authenticators run.
+    Authenticate using X-Session-ID header → Django session
     """
     def authenticate(self, request):
         session_key = request.headers.get("X-Session-ID")

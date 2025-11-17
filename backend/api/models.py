@@ -7,7 +7,6 @@ from datetime import timedelta
 
 User = get_user_model()
 
-
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     full_name = models.CharField(max_length=100, blank=True)
@@ -23,15 +22,15 @@ class Post(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='posts')
     caption = models.TextField(blank=True)
-    media_urls = models.JSONField(default=list)  # list of strings (urls)
+    media_urls = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-created_at']
-        indexes = [models.Index(fields=['-created_at'])]
-
-    def __str__(self):
-        return f"{self.user.username} - {self.caption[:20]}"
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['user', '-created_at']),
+        ]
 
 
 class Comment(models.Model):
@@ -42,8 +41,8 @@ class Comment(models.Model):
     parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='replies')
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.user.username}: {self.text[:30]}"
+    class Meta:
+        indexes = [models.Index(fields=['post', '-created_at'])]
 
 
 class Like(models.Model):
@@ -53,6 +52,7 @@ class Like(models.Model):
 
     class Meta:
         unique_together = ('post', 'user')
+        indexes = [models.Index(fields=['post'])]
 
 
 class Message(models.Model):
@@ -66,6 +66,10 @@ class Message(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['sender', '-created_at']),
+            models.Index(fields=['receiver', '-created_at']),
+        ]
 
 
 class Follower(models.Model):
@@ -75,6 +79,7 @@ class Follower(models.Model):
 
     class Meta:
         unique_together = ('follower', 'followed')
+        indexes = [models.Index(fields=['followed'])]
 
 
 class FriendRequest(models.Model):
@@ -84,6 +89,9 @@ class FriendRequest(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [models.Index(fields=['receiver', 'status'])]
+
 
 class Story(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -91,15 +99,18 @@ class Story(models.Model):
     media_url = models.URLField()
     media_type = models.CharField(max_length=10, choices=[('image', 'Image'), ('video', 'Video')])
     created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(db_index=True)
 
     def save(self, *args, **kwargs):
         if not self.expires_at:
             self.expires_at = timezone.now() + timedelta(hours=24)
         super().save(*args, **kwargs)
 
-    def is_expired(self):
-        return timezone.now() > self.expires_at
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['expires_at']),
+        ]
 
 
 class StoryView(models.Model):
