@@ -1,14 +1,1 @@
-﻿Django==5.1
-djangorestframework
-django-cors-headers
-psycopg2-binary
-dj-database-url
-gunicorn
-celery
-redis
-python-dotenv
-pillow
-httpx
-supabase
-supabase-auth
-uvicorn
+﻿gunicorn
