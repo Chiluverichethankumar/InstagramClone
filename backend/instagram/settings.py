@@ -114,6 +114,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 # Load .env only in local
 if os.getenv('RAILWAY_ENVIRONMENT') is None:
@@ -128,8 +129,9 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
-    '.railway.app',
+    'instagramclone-production-248e.up.railway.app',
 ]
+
 
 # Add Supabase domain automatically
 if os.getenv('SUPABASE_URL'):
@@ -154,6 +156,8 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     # 'django.middleware.csrf.CsrfViewMiddleware',  # Disabled for pure API (good)
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -179,7 +183,7 @@ TEMPLATES = [
 ]
 
 # ==================== DATABASE ====================
-import dj_database_url
+
 
 if os.getenv('DATABASE_URL'):
     DATABASES = {
@@ -196,6 +200,7 @@ else:
             'PORT': os.getenv('POSTGRES_PORT', '6543'),
         }
     }
+
 
 # ==================== STATIC ====================
 STATIC_URL = '/static/'
