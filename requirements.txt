@@ -1,0 +1,10 @@
+﻿django
+python-dotenv
+djangorestframework
+django-cors-headers
+psycopg2-binary
+supabase
+gunicorn
+dj-database-url
+python-decouple
+whitenoise
