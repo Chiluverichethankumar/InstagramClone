@@ -133,7 +133,7 @@ class AuthViewSet(viewsets.ViewSet):
         })
 
 # ===================================================================
-# 3. Relationships – Follow + Friend Requests (private accounts)
+# 3. Relationships – Follow + Friend Requests (private accounts) + view any user profile
 # ===================================================================
 class FollowerViewSet(viewsets.ViewSet):
     authentication_classes = [SessionIDAuthentication]
@@ -195,10 +195,9 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Only fetch friend requests where logged-in user is involved
         return FriendRequest.objects.filter(
             Q(sender=self.request.user) | Q(receiver=self.request.user)
-        )
+        ).select_related('sender__profile', 'receiver__profile')
 
     @action(detail=False, methods=['post'])
     def send(self, request):
@@ -257,6 +256,16 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
         )
         friends = [fr.receiver if fr.sender == request.user else fr.sender for fr in accepted]
         return Response(UserSerializer(friends, many=True).data)
+
+class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = UserProfile.objects.select_related('user')
+    serializer_class = UserProfileSerializer
+    lookup_field = 'user__username'
+
+    @action(detail=False, methods=['get'])
+    def me(self, request):
+        serializer = self.get_serializer(request.user.profile)
+        return Response(serializer.data)
 
 
 # ===================================================================
@@ -520,16 +529,32 @@ class StoryViewSet(BaseModelViewSet):
     @action(detail=True, methods=['post'])
     def mark_viewed(self, request, pk=None):
         story = get_object_or_404(Story, id=pk)
-        StoryView.objects.get_or_create(story=story, viewer=request.user)
-        return Response({'viewed': True})
+
+        # 🔹 Cannot view your own story as 'viewer'
+        if story.user == request.user:
+            return Response({'message': 'You cannot mark your own story as viewed.'}, status=400)
+
+        # 🔹 If already viewed, don't duplicate
+        view, created = StoryView.objects.get_or_create(
+            story=story,
+            viewer=request.user
+        )
+
+        return Response({
+            'viewed': True,
+            'is_new_view': created,
+            'story_id': pk,
+            'total_views': StoryView.objects.filter(story=story).count()
+        })
+
 
     @action(detail=True, methods=['get'])
-    def viewers(self, request, pk=None):
+    def views(self, request, pk=None):
         story = get_object_or_404(Story, id=pk)
-        if story.user != request.user:
-            return Response({'error': 'Not owner'}, status=403)
-        users = [v.viewer for v in story.views.all()]
+        viewers = StoryView.objects.filter(story=story).values_list('viewer', flat=True)
+        users = User.objects.filter(id__in=viewers)
         return Response(UserSerializer(users, many=True).data)
+
 
     @action(detail=False, methods=['post'])
     def cleanup(self, request):

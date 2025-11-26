@@ -20,3 +20,6 @@ def process_upload_and_save_model(file_data, path, model_id, model_type):
     except Exception as e:
         # Handle failure, potentially logging the error
         return {"status": "failed", "error": str(e)}
+@shared_task
+def cleanup_expired_stories():
+    Story.objects.filter(expires_at__lt=timezone.now()).delete()

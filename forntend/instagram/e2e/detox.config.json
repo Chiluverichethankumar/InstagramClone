@@ -1,0 +1,22 @@
+{
+    "testRunner": "jest",
+    "runnerConfig": "e2e/jest.config.js",
+    "specs": "e2e/**/*.test.js",
+    "apps": {
+        "android": {
+            "type": "android.apk",
+            "binaryPath": "android/app/build/outputs/apk/debug/app-debug.apk",
+            "build": "cd android && ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug && cd .."
+        },
+        "ios": {
+            "type": "ios.app",
+            "binaryPath": "ios/build/Build/Products/Debug-iphonesimulator/Instagram.app",
+            "build": "xcodebuild -workspace ios/Instagram.xcworkspace -scheme Instagram -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build"
+        }
+    },
+    "behavior": {
+        "init": {
+            "exposeGlobals": true
+        }
+    }
+}
