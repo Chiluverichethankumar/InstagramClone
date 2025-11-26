@@ -6,10 +6,9 @@ import { useAppTheme } from '../../theme/ThemeContext';
 
 export const HomeScreen = () => {
   const { data: user, isLoading, error } = useGetMeQuery();
-  const { theme, mode, setMode } = useAppTheme();
+  const { theme } = useAppTheme();
 
   if (isLoading) return <Loading />;
-
   if (error || !user) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -20,7 +19,6 @@ export const HomeScreen = () => {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Remove header/logo block from here! */}
       <View style={[styles.userCard, { borderBottomColor: theme.colors.border, backgroundColor: theme.colors.card }]}>
         <View style={styles.avatarContainer}>
           {user.profile?.profile_pic ? (
@@ -48,65 +46,17 @@ export const HomeScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  userCard: {
-    alignItems: 'center',
-    padding: 24,
-    borderBottomWidth: 1,
-  },
-  avatarContainer: {
-    marginBottom: 16,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 40,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  username: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  fullName: {
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  email: {
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  bio: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  feedContainer: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  feedTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  feedSubtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 24,
-  },
+  userCard: { alignItems: 'center', padding: 24, borderBottomWidth: 1 },
+  avatarContainer: { marginBottom: 16 },
+  avatar: { width: 100, height: 100, borderRadius: 50 },
+  avatarPlaceholder: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 40, color: '#FFFFFF', fontWeight: 'bold' },
+  username: { fontSize: 24, fontWeight: 'bold', marginBottom: 4 },
+  fullName: { fontSize: 16, marginBottom: 4 },
+  email: { fontSize: 14, marginBottom: 12 },
+  bio: { fontSize: 14, textAlign: 'center', marginTop: 8 },
+  feedContainer: { padding: 24, alignItems: 'center' },
+  feedTitle: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
+  feedSubtitle: { fontSize: 14, textAlign: 'center' },
+  errorText: { fontSize: 16, textAlign: 'center', marginTop: 24 },
 });

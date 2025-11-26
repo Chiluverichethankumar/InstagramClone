@@ -9,7 +9,8 @@ export const UserSearchScreen = () => {
   const { theme } = useAppTheme();
   const { data, isFetching } = useSearchUsersQuery(query, { skip: query.length < 2 });
   const navigation = useNavigation();
-  const users = data?.results || [];
+  // Use .results for paginated APIs, or assume data is an array
+  const users = Array.isArray(data) ? data : data?.results || [];
 
   const renderItem = ({ item }) => (
     <TouchableOpacity

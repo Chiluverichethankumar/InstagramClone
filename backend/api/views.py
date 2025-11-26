@@ -217,7 +217,26 @@ class FollowerViewSet(viewsets.ViewSet):
         serializer = UserSerializer(following, many=True)
         return Response(serializer.data, status=200)
 
+class ProfileViewSet(viewsets.ModelViewSet):
+    queryset = UserProfile.objects.select_related('user')
+    serializer_class = UserProfileSerializer
+    lookup_field = 'user__username'
+    permission_classes = [IsAuthenticated]
 
+    @action(detail=False, methods=['patch'], url_path='privacy')
+    def privacy(self, request):
+        """
+        Endpoint: PATCH /profiles/privacy/
+        Body: { "is_private": true } or { "is_private": false }
+        """
+        profile = request.user.profile
+        is_private = request.data.get('is_private', None)
+        if is_private is None:
+            return Response({'error': 'is_private required'}, status=400)
+        profile.is_private = bool(is_private)
+        profile.save()
+        return Response({'is_private': profile.is_private}, status=status.HTTP_200_OK)
+    
 class FriendRequestViewSet(viewsets.ModelViewSet):
     """
     Manages the lifecycle of private follow requests (accept, reject, list).

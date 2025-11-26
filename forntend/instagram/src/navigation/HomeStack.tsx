@@ -1,9 +1,10 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeScreen } from '../screens/home/HomeScreen';
-import { UserSearchScreen } from '../screens/user/UserSearchScreen';
-import { UserProfileScreen } from '../screens/profile/UserProfileScreen'; // Import this!
-import { TouchableOpacity, Text } from 'react-native';
+import { UserProfileScreen } from '../screens/profile/UserProfileScreen';
+import { FollowListModal } from '../screens/user/FollowListModal';
+import { NotificationsTab } from '../screens/notifications/NotificationsTab';
+import { TouchableOpacity, View, Text } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../theme/ThemeContext';
 
@@ -11,7 +12,6 @@ const Stack = createNativeStackNavigator();
 
 export const HomeStack = () => {
   const { theme } = useAppTheme();
-
   return (
     <Stack.Navigator>
       <Stack.Screen
@@ -23,34 +23,34 @@ export const HomeStack = () => {
               fontFamily: 'Billabong',
               fontSize: 30,
               color: theme.colors.text,
-            }}>
-              Instagram
-            </Text>
+            }}>Instagram</Text>
           ),
           headerRight: () => (
-            <TouchableOpacity onPress={() => navigation.navigate('UserSearch')} style={{ marginRight: 16 }}>
-              <Icon name="search" size={28} color={theme.colors.primary} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('NotificationsTab')}
+                style={{ marginRight: 20 }}
+              >
+                <Icon name="heart-outline" size={28} color={theme.colors.primary} />
+              </TouchableOpacity>
+            </View>
           ),
         })}
       />
       <Stack.Screen
-        name="UserSearch"
-        component={UserSearchScreen}
-        options={{
-          headerTitle: '',
-          headerRight: () => (
-            <Icon name="search" size={28} color={theme.colors.primary} style={{ marginRight: 16 }} />
-          ),
-        }}
-      />
-      {/* THIS IS THE CRITICAL LINE! */}
-      <Stack.Screen
         name="UserProfile"
         component={UserProfileScreen}
-        options={{
-          headerTitle: '',
-        }}
+        options={{ headerTitle: '' }}
+      />
+      <Stack.Screen
+        name="FollowListModal"
+        component={FollowListModal}
+        options={{ presentation: 'modal', headerTitle: 'Followers / Following' }}
+      />
+      <Stack.Screen
+        name="NotificationsTab"
+        component={NotificationsTab}
+        options={{ headerTitle: 'Requests' }}
       />
     </Stack.Navigator>
   );

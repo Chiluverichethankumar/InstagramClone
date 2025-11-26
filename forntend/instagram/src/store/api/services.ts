@@ -59,7 +59,7 @@ export const api = createApi({
       query: (id) => ({ url: `followers/${id}/unfollow/`, method: 'POST' }),
       invalidatesTags: ['Followers', 'Following', 'UserProfile'],
     }),
-    searchUsers: builder.query<any, string>({ // use "any" temporarily for username-based lists
+    searchUsers: builder.query<any, string>({
       query: (q) => `search/users/?q=${encodeURIComponent(q)}`,
       keepUnusedDataFor: 60,
     }),
@@ -107,7 +107,6 @@ export const api = createApi({
   }),
 });
 
-// Export all the hooks
 export const {
   useSignupMutation,
   useLoginMutation,

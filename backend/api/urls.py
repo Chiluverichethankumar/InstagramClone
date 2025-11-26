@@ -22,6 +22,7 @@ router.register(r'auth', AuthViewSet, basename='auth')
 router.register(r'messages', MessageViewSet, basename='messages')
 router.register(r'profiles', ProfileViewSet, basename='profile')
 
+
 def health_check(request):
     return JsonResponse({'status': 'ok', 'time': timezone.now().isoformat()})
 

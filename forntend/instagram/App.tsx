@@ -5,13 +5,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Provider } from 'react-redux';
 import { store } from './src/store/store';
 import { AuthStack } from './src/navigation/AuthStack';
-import { MainTabs } from './src/navigation/MainTabs';
+import { AppNavigator } from './src/navigation/AppNavigator';   // <-- CHANGED
 import { Loading } from './src/components/common/Loading';
 import { ThemeProvider, useAppTheme } from './src/theme/ThemeContext';
 
 const AppInner = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const { mode } = useAppTheme(); // Call hooks always at the top
+  const { mode } = useAppTheme();
   const navTheme = mode === 'dark' ? DarkTheme : DefaultTheme;
 
   useEffect(() => {
@@ -30,7 +30,7 @@ const AppInner = () => {
     <>
       <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} />
       <NavigationContainer theme={navTheme}>
-        {isAuthenticated ? <MainTabs /> : <AuthStack />}
+        {isAuthenticated ? <AppNavigator /> : <AuthStack />}   {/* <-- CHANGED */}
       </NavigationContainer>
     </>
   );
