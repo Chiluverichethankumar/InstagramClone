@@ -223,10 +223,15 @@ class ProfileViewSet(viewsets.ModelViewSet):
     lookup_field = 'user__username'
     permission_classes = [IsAuthenticated]
 
+    @action(detail=False, methods=['get'])
+    def me(self, request):
+        serializer = self.get_serializer(request.user.profile)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['patch'], url_path='privacy')
     def privacy(self, request):
         """
-        Endpoint: PATCH /profiles/privacy/
+        PATCH /api/profiles/privacy/
         Body: { "is_private": true } or { "is_private": false }
         """
         profile = request.user.profile
@@ -236,7 +241,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
         profile.is_private = bool(is_private)
         profile.save()
         return Response({'is_private': profile.is_private}, status=status.HTTP_200_OK)
-    
+ 
 class FriendRequestViewSet(viewsets.ModelViewSet):
     """
     Manages the lifecycle of private follow requests (accept, reject, list).
@@ -313,19 +318,6 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
         friends = [fr.receiver if fr.sender == request.user else fr.sender for fr in accepted]
         return Response(UserSerializer(friends, many=True).data)
 
-
-class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    Exposes user profile data.
-    """
-    queryset = UserProfile.objects.select_related('user')
-    serializer_class = UserProfileSerializer
-    lookup_field = 'user__username'
-
-    @action(detail=False, methods=['get'])
-    def me(self, request):
-        serializer = self.get_serializer(request.user.profile)
-        return Response(serializer.data)
 
 # ===================================================================
 # 4. Posts
