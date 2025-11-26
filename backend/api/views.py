@@ -136,6 +136,10 @@ class AuthViewSet(viewsets.ViewSet):
 # 3. Relationships – Follow + Friend Requests (private accounts) + view any user profile
 # ===================================================================
 class FollowerViewSet(viewsets.ViewSet):
+    """
+    Handles initiating a follow (public account) or sending a follow request (private account).
+    Also handles unfollow and fetching followers/following lists.
+    """
     authentication_classes = [SessionIDAuthentication]
     permission_classes = [IsAuthenticated]
     queryset = User.objects.all()
@@ -143,41 +147,64 @@ class FollowerViewSet(viewsets.ViewSet):
 
     @action(detail=True, methods=['post'])
     def follow(self, request, pk=None):
+        """
+        1. Sending a Follow Request / Initiating the Follow
+        Handles the logic for both public (immediate follow) and private (request sent) accounts.
+        """
         user_to_follow = get_object_or_404(User, id=pk)
 
         if user_to_follow == request.user:
             return Response({'error': 'You cannot follow yourself.'}, status=400)
 
+        # Pre-check: If already following (e.g., if target account switched from public to private)
+        if Follower.objects.filter(follower=request.user, followed=user_to_follow).exists():
+             return Response({'sent': False, 'message': 'You are already following this user.'})
+
         profile = getattr(user_to_follow, 'profile', None)
+
         if profile and profile.is_private:
-            # Check if a friend request already exists
-            existing = FriendRequest.objects.filter(sender=request.user, receiver=user_to_follow).first()
-            reverse_existing = FriendRequest.objects.filter(sender=user_to_follow, receiver=request.user, status='pending').first()
+            # --- PRIVATE ACCOUNT LOGIC (Follow Request) ---
 
-            if existing and existing.status == 'pending':
-                return Response({'sent': False, 'message': 'Request already pending'})
-            if existing and existing.status == 'accepted':
-                return Response({'sent': False, 'message': 'You are already friends'})
-            if reverse_existing:
-                return Response({'sent': False, 'message': 'They already sent you a request'})
+            # Check for existing request sent by the current user
+            existing_req = FriendRequest.objects.filter(sender=request.user, receiver=user_to_follow).first()
             
-            if existing:
-                existing.delete()
+            # Check for reverse pending request sent by the user_to_follow
+            reverse_req = FriendRequest.objects.filter(sender=user_to_follow, receiver=request.user, status='pending').first()
 
-            FriendRequest.objects.create(sender=request.user, receiver=user_to_follow)
-            return Response({'sent': True, 'message': 'Follow request sent (private account)'})
+            if existing_req and existing_req.status == 'pending':
+                return Response({'sent': False, 'message': 'Follow request already pending.'})
+            
+            # If the reverse request exists, inform the user they should accept instead of sending
+            if reverse_req:
+                return Response({'sent': False, 'message': 'They already sent you a request. Please accept it.'})
+            
+            # If an old request exists (e.g., rejected or cancelled), delete it to allow re-requesting
+            if existing_req:
+                existing_req.delete()
 
-        obj, created = Follower.objects.get_or_create(follower=request.user, followed=user_to_follow)
-        return Response({'message': 'Now following' if created else 'Already following'})
+            # Create the new pending follow request
+            FriendRequest.objects.create(sender=request.user, receiver=user_to_follow, status='pending')
+            return Response({'sent': True, 'message': 'Follow request sent (private account).'})
+
+        else:
+            # --- PUBLIC ACCOUNT LOGIC (Immediate Follow) ---
+            obj, created = Follower.objects.get_or_create(follower=request.user, followed=user_to_follow)
+            return Response({'message': 'Now following' if created else 'Already following'})
 
     @action(detail=True, methods=['post'])
     def unfollow(self, request, pk=None):
-        deleted, _ = Follower.objects.filter(follower=request.user, followed_id=pk).delete()
-        return Response({'message': 'Unfollowed successfully.' if deleted else 'You were not following this user.'})
+        # Delete both the Follower entry and any pending FriendRequest
+        Follower.objects.filter(follower=request.user, followed_id=pk).delete()
+        
+        # If the user unfollows, any pending/accepted/rejected request from them to the target should also be cleaned up.
+        FriendRequest.objects.filter(sender=request.user, receiver_id=pk).delete()
+        
+        return Response({'message': 'Unfollowed successfully.'})
 
     @action(detail=True, methods=['get'])
     def followers(self, request, pk=None):
         user = get_object_or_404(User, id=pk)
+        # Assuming the Follower model uses 'following' as related name on the User model
         followers = User.objects.filter(following__followed=user)
         serializer = UserSerializer(followers, many=True)
         return Response(serializer.data, status=200)
@@ -185,79 +212,93 @@ class FollowerViewSet(viewsets.ViewSet):
     @action(detail=True, methods=['get'])
     def following(self, request, pk=None):
         user = get_object_or_404(User, id=pk)
+        # Assuming the Follower model uses 'followers' as related name on the User model
         following = User.objects.filter(followers__follower=user)
         serializer = UserSerializer(following, many=True)
         return Response(serializer.data, status=200)
 
 
 class FriendRequestViewSet(viewsets.ModelViewSet):
+    """
+    Manages the lifecycle of private follow requests (accept, reject, list).
+    """
     serializer_class = FriendRequestSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        # Only show requests where the current user is involved
         return FriendRequest.objects.filter(
             Q(sender=self.request.user) | Q(receiver=self.request.user)
         ).select_related('sender__profile', 'receiver__profile')
 
-    @action(detail=False, methods=['post'])
-    def send(self, request):
-        receiver = get_object_or_404(User, id=request.data.get('receiver'))
-        if receiver == request.user:
-            return Response({'sent': False, 'message': 'Cannot send request to yourself'}, status=400)
-
-        existing = FriendRequest.objects.filter(sender=request.user, receiver=receiver).first()
-        reverse_existing = FriendRequest.objects.filter(sender=receiver, receiver=request.user, status='pending').first()
-
-        if existing and existing.status in ['pending', 'accepted']:
-            return Response({'sent': False, 'message': f'Request already {existing.status}'})
-        if reverse_existing:
-            return Response({'sent': False, 'message': 'They already sent you a request'})
-
-        if existing:
-            existing.delete()
-        FriendRequest.objects.create(sender=request.user, receiver=receiver)
-        return Response({'sent': True, 'message': 'Friend request sent'})
-
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
+        """
+        2. Accepting the Request (For Private Accounts)
+        3. The "Follow Back" Mechanism (Automatic Mutual Follow)
+        """
         req = self.get_object()
+        
         if req.receiver != request.user:
-            return Response({'error': 'You are not the receiver'}, status=403)
+            return Response({'error': 'You are not authorized to accept this request.'}, status=403)
+        
+        if req.status != 'pending':
+            return Response({'error': 'Request is not pending.'}, status=400)
+
+        # 2. Acceptance: Update request status
         req.status = 'accepted'
         req.save()
-        # Automatically make both users follow each other
+
+        # 3. Follow Back Mechanism (Automatic Mutual Follow)
+        # This creates the *follow* relationship for the original sender (Follower -> Followed)
         Follower.objects.get_or_create(follower=req.sender, followed=req.receiver)
+        
+        # This creates the *follow back* relationship for the receiver (Followed -> Follower)
         Follower.objects.get_or_create(follower=req.receiver, followed=req.sender)
-        return Response({'status': 'accepted'})
+
+        return Response({'status': 'accepted', 'message': 'Request accepted, mutual follow established.'})
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
+        """Denies a pending follow request."""
         req = self.get_object()
         if req.receiver != request.user:
             return Response({'error': 'You are not the receiver'}, status=403)
+        
+        if req.status != 'pending':
+            return Response({'error': 'Request is not pending.'}, status=400)
+            
         req.status = 'rejected'
         req.save()
         return Response({'status': 'rejected'})
 
     @action(detail=False, methods=['get'])
     def pending(self, request):
+        """Lists pending requests where the current user is the receiver."""
         reqs = FriendRequest.objects.filter(receiver=request.user, status='pending')
         return Response(self.get_serializer(reqs, many=True).data)
 
     @action(detail=False, methods=['get'])
     def sent(self, request):
+        """Lists pending requests where the current user is the sender."""
         reqs = FriendRequest.objects.filter(sender=request.user, status='pending')
         return Response(self.get_serializer(reqs, many=True).data)
 
     @action(detail=False, methods=['get'])
     def friends(self, request):
+        """Lists users with an accepted (mutual) FriendRequest."""
+        # Note: This is an alternate way to find mutual followers, the primary way should be via the Follower model after acceptance.
         accepted = FriendRequest.objects.filter(
             Q(sender=request.user) | Q(receiver=request.user), status='accepted'
         )
         friends = [fr.receiver if fr.sender == request.user else fr.sender for fr in accepted]
         return Response(UserSerializer(friends, many=True).data)
 
+
 class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Exposes user profile data.
+    """
     queryset = UserProfile.objects.select_related('user')
     serializer_class = UserProfileSerializer
     lookup_field = 'user__username'
@@ -266,7 +307,6 @@ class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
     def me(self, request):
         serializer = self.get_serializer(request.user.profile)
         return Response(serializer.data)
-
 
 # ===================================================================
 # 4. Posts

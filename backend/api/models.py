@@ -1,5 +1,3 @@
-
-# backend/api/models.py
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -25,9 +23,11 @@ class UserProfile(models.Model):
 
 # 2. Follow / Friend system
 class Follower(models.Model):
+    # 'following' is the related name on the user who is doing the following
     follower = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="following"
     )
+    # 'followers' is the related name on the user who is being followed
     followed = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="followers"
     )
@@ -62,7 +62,7 @@ class Post(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="posts")
     caption = models.TextField(blank=True)
-    media_urls = models.JSONField(default=list)          # list of URLs
+    media_urls = models.JSONField(default=list)      # list of URLs
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -129,6 +129,7 @@ class Story(models.Model):
         max_length=10, choices=[("image", "Image"), ("video", "Video")]
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # Expires in 24 hours by default
     expires_at = models.DateTimeField(db_index=True, null=True, blank=True)
 
     def save(self, *args, **kwargs):

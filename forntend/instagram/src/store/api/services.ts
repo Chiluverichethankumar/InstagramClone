@@ -35,6 +35,10 @@ export const api = createApi({
       transformResponse: (response: any) => response.user,
       providesTags: ['Me', 'Auth'],
     }),
+    getUserProfileByUsername: builder.query<any, string>({
+      query: (username) => ({ url: `profiles/${username}/`, method: 'GET' }),
+      providesTags: ['UserProfile'],
+    }),
     getUser: builder.query<User, number>({
       query: (id) => ({ url: `users/${id}/`, method: 'GET' }),
       providesTags: ['UserProfile'],
@@ -55,7 +59,7 @@ export const api = createApi({
       query: (id) => ({ url: `followers/${id}/unfollow/`, method: 'POST' }),
       invalidatesTags: ['Followers', 'Following', 'UserProfile'],
     }),
-    searchUsers: builder.query<User[], string>({
+    searchUsers: builder.query<any, string>({ // use "any" temporarily for username-based lists
       query: (q) => `search/users/?q=${encodeURIComponent(q)}`,
       keepUnusedDataFor: 60,
     }),
@@ -99,7 +103,7 @@ export const api = createApi({
         result
           ? ['Posts', ...result.posts.map((p) => ({ type: 'Posts' as const, id: p.id }))]
           : ['Posts'],
-    }),
+    })
   }),
 });
 
@@ -110,6 +114,7 @@ export const {
   useLogoutMutation,
   useGetMeQuery,
   useGetUserQuery,
+  useGetUserProfileByUsernameQuery,
   useGetFollowersQuery,
   useGetFollowingQuery,
   useFollowUserMutation,

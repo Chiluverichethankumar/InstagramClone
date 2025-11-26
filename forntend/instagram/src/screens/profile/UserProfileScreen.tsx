@@ -5,7 +5,7 @@ import { useGetUserProfileByUsernameQuery } from '../../store/api/services';
 import { Loading } from '../../components/common/Loading';
 import { useAppTheme } from '../../theme/ThemeContext';
 
-export const ProfileScreen = () => {
+export const UserProfileScreen = () => {
   const { theme } = useAppTheme();
   const route = useRoute();
   const username = route.params?.username;
@@ -22,12 +22,12 @@ export const ProfileScreen = () => {
 
   if (isLoading) return <Loading />;
 
-  // Check for 404 error and show "No data for this user"
+  // 404/Not found
   if (
     isError ||
     !profile ||
     (error?.status === 404 ||
-     (error?.data && /No UserProfile/i.test(JSON.stringify(error.data))))
+      (error?.data && /No UserProfile/i.test(JSON.stringify(error.data))))
   ) {
     return (
       <View style={styles.container}>

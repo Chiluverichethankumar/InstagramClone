@@ -9,13 +9,12 @@ export const UserSearchScreen = () => {
   const { theme } = useAppTheme();
   const { data, isFetching } = useSearchUsersQuery(query, { skip: query.length < 2 });
   const navigation = useNavigation();
-
   const users = data?.results || [];
 
   const renderItem = ({ item }) => (
     <TouchableOpacity
       style={[styles.userRow, { borderBottomColor: theme.colors.border }]}
-      onPress={() => navigation.navigate('Profile', { userId: item.id })}
+      onPress={() => navigation.navigate('UserProfile', { username: item.username })}
     >
       {item.profile?.profile_pic ? (
         <Image source={{ uri: item.profile.profile_pic }} style={styles.avatar} />
@@ -26,7 +25,7 @@ export const UserSearchScreen = () => {
       )}
       <View style={styles.info}>
         <Text style={[styles.username, { color: theme.colors.text }]}>{item.username}</Text>
-        <Text style={[styles.fullName, { color: theme.colors.textSecondary }]}>{item.profile?.full_name}</Text>
+        <Text style={[styles.fullName, { color: theme.colors.textSecondary }]}>{item.profile?.full_name || ''}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -52,7 +51,7 @@ export const UserSearchScreen = () => {
       {isFetching && <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 16 }} />}
       <FlatList
         data={users}
-        keyExtractor={item => item.id.toString()}
+        keyExtractor={item => item.username}
         renderItem={renderItem}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={() =>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { HomeStack } from './HomeStack';
-import { ProfileScreen } from '../screens/profile/ProfileScreen';
+import { HomeStack } from '../navigation/HomeStack';
+import { MyProfileScreen } from '../screens/profile/MyProfileScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { useAppTheme } from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -9,7 +9,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 const Tab = createBottomTabNavigator();
 
 export const MainTabs = () => {
-  const { theme } = useAppTheme(); // ALWAYS destructure from context
+  const { theme } = useAppTheme();
 
   return (
     <Tab.Navigator
@@ -30,8 +30,8 @@ export const MainTabs = () => {
       })}
     >
       <Tab.Screen name="Home" component={HomeStack} options={{ tabBarLabel: 'Home' }} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="Profile" component={MyProfileScreen} options={{ tabBarLabel: 'Profile' }} />
+      <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: 'Settings' }} />
     </Tab.Navigator>
   );
 };
