@@ -2,10 +2,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Alert, StyleSheet, Switch } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppTheme } from '../../theme/ThemeContext';
+import { useNavigation } from '@react-navigation/native';
 
 export const SettingsScreen = () => {
   const { handleLogout } = useAuth();
-  // Expect { theme, mode, setMode } from your ThemeContext!
+  const navigation = useNavigation();
   const { theme, mode, setMode } = useAppTheme();
 
   const onLogout = async () => {
@@ -32,6 +33,13 @@ export const SettingsScreen = () => {
       </View>
 
       <TouchableOpacity
+        style={styles.settingRow}
+        onPress={() => navigation.navigate('AccountPrivacy')}
+      >
+        <Text style={[styles.settingLabel, { color: theme.colors.text }]}>Account Privacy</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
         style={[styles.button, { backgroundColor: theme.colors.error }]}
         onPress={onLogout}
         testID="settings-logout-button"
@@ -45,19 +53,21 @@ export const SettingsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'stretch', // use 'stretch' for full-width rows
+    padding: 24,
+    backgroundColor: '#fff'
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 32,
+    textAlign: 'center'
   },
   button: {
-    marginTop: 32,
+    marginTop: 40,
     paddingVertical: 10,
-    paddingHorizontal: 24,
     borderRadius: 8,
+    alignItems: 'center',
   },
   buttonText: {
     color: '#FFF',
@@ -68,9 +78,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 24,
+    justifyContent: 'space-between',
+    paddingHorizontal: 4
   },
   label: {
     fontSize: 18,
     marginRight: 16,
   },
+  settingRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderColor: '#eee',
+    paddingHorizontal: 4,
+    marginBottom: 8
+  },
+  settingLabel: { fontSize: 16, fontWeight: '500' },
 });

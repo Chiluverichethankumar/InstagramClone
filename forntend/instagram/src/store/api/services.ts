@@ -103,7 +103,15 @@ export const api = createApi({
         result
           ? ['Posts', ...result.posts.map((p) => ({ type: 'Posts' as const, id: p.id }))]
           : ['Posts'],
-    })
+    }),
+    updatePrivacy: builder.mutation<{ is_private: boolean }, { is_private: boolean }>({
+    query: (body) => ({
+        url: 'profiles/privacy/',
+        method: 'PATCH',
+        body,
+    }),
+    invalidatesTags: ['UserProfile', 'Me'],
+    }),
   }),
 });
 
@@ -126,4 +134,6 @@ export const {
   useSentRequestsQuery,
   useFriendsQuery,
   useGetPostsQuery,
+  useUpdatePrivacyMutation,
+
 } = api;

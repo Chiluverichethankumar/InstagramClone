@@ -2,12 +2,10 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { HomeStack } from '../navigation/HomeStack';
 import { UserSearchScreen } from '../screens/user/UserSearchScreen';
-import { MyProfileScreen } from '../screens/profile/MyProfileScreen';
-import { SettingsScreen } from '../screens/settings/SettingsScreen';
+import { ProfileStack } from '../screens/profile/ProfileStack';
 import { useAppTheme } from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-// Init the tab navigator
 const Tab = createBottomTabNavigator();
 
 export const MainTabs = () => {
@@ -27,7 +25,6 @@ export const MainTabs = () => {
           if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
           else if (route.name === 'Explore') iconName = focused ? 'search' : 'search-outline';
           else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
-          else if (route.name === 'Settings') iconName = focused ? 'settings' : 'settings-outline';
           return <Icon name={iconName} size={24} color={color} />;
         },
       })}
@@ -44,14 +41,10 @@ export const MainTabs = () => {
       />
       <Tab.Screen
         name="Profile"
-        component={MyProfileScreen}
+        component={ProfileStack} // << DON'T use MyProfileScreen here!
         options={{ tabBarLabel: 'Profile' }}
       />
-      <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{ tabBarLabel: 'Settings' }}
-      />
+ 
     </Tab.Navigator>
   );
 };
