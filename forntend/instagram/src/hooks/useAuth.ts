@@ -35,6 +35,7 @@ export const useAuth = () => {
     try {
       const result: AuthResponse = await login(payload).unwrap();
       await AsyncStorage.setItem('session_id', result.session_id);
+      console.log('SESSION FROM APP LOGIN:', result.session_id);
       return { success: true };
     } catch (e: any) {
       const errorMessage =

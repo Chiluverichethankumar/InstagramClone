@@ -7,7 +7,8 @@
     "password": "Ravi@123"
 }
 
-
+alice21
+StrongPassword1223
 
 {
     "username": "pavan",

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import {
   useGetUserProfileByUsernameQuery,
@@ -7,46 +7,108 @@ import {
   useGetFollowingQuery,
   useFollowUserMutation,
   useUnfollowUserMutation,
-  useSendFriendRequestMutation
 } from '../../store/api/services';
 import { Loading } from '../../components/common/Loading';
 import { useAppTheme } from '../../theme/ThemeContext';
 
-export const UserProfileScreen = () => {
+type FollowState = 'not-following' | 'following' | 'pending';
+
+export const UserProfileScreen: React.FC = () => {
   const { theme } = useAppTheme();
-  const navigation = useNavigation();
-  const route = useRoute();
-  const username = route.params?.username;
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const username: string | undefined = route.params?.username;
 
-  const { data: profile, isLoading, isError, error } = useGetUserProfileByUsernameQuery(username, { skip: !username });
-  const userId = profile?.user?.id || profile?.id;
+  const {
+    data: profile,
+    isLoading,
+    isError,
+  } = useGetUserProfileByUsernameQuery(username as string, { skip: !username });
 
-  // Followers/Following counts
-  const { data: followers = [] } = useGetFollowersQuery(userId, { skip: !userId });
-  const { data: following = [] } = useGetFollowingQuery(userId, { skip: !userId });
+  // backend profile: { id: 2, user: { id: 7, ... } }
+  const userId: number | undefined = profile?.user?.id;
 
-  // Follow/Unfollow/Request
+  const { data: followers = [] } = useGetFollowersQuery(userId!, { skip: !userId });
+  const { data: following = [] } = useGetFollowingQuery(userId!, { skip: !userId });
+
   const [followUser, { isLoading: followLoading }] = useFollowUserMutation();
   const [unfollowUser, { isLoading: unfollowLoading }] = useUnfollowUserMutation();
-  const [sendFriendRequest, { isLoading: requestLoading }] = useSendFriendRequestMutation();
 
-  // For actual "Follow" state, you may want to get this from backend for authenticated user
-  const [followState, setFollowState] = React.useState('not-following'); // logic to update this accordingly
+  const [followState, setFollowState] = useState<FollowState>('not-following');
+
+  useEffect(() => {
+    if (!profile) return;
+
+    if (profile.is_following) {
+      setFollowState('following');
+    } else if (profile.request_sent) {
+      setFollowState('pending');
+    } else {
+      setFollowState('not-following');
+    }
+  }, [profile]);
 
   if (!username) return <Text>No username provided!</Text>;
-  if (isLoading) return <Loading />;
-  if (isError || !profile) return <View style={styles.container}><Text style={styles.errorText}>No data for this user</Text></View>;
+  if (isLoading || (!profile && !isError)) return <Loading />;
+  if (isError || !profile) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>No data for this user</Text>
+      </View>
+    );
+  }
 
-  const displayUsername = profile.user?.username || profile.username || username || '';
+  const displayUsername =
+    profile.user?.username || profile.username || username || '';
+
+  const handleFollowPress = async () => {
+    if (!userId) {
+      Alert.alert('Error', 'Cannot follow: invalid user id');
+      return;
+    }
+
+    try {
+      const res: any = await followUser(userId).unwrap();
+      console.log('followUser response:', res);
+
+      if (profile.is_private) {
+        // Private account → any 200 means treat as "Requested"
+        setFollowState('pending');
+      } else {
+        // Public account
+        setFollowState('following');
+      }
+    } catch (e: any) {
+      console.log('followUser error:', e);
+      const msg =
+        e?.data?.error || e?.data?.message || e?.message || 'Action failed';
+      Alert.alert('Error', msg);
+    }
+  };
+
+  const handleUnfollowPress = async () => {
+    if (!userId) {
+      Alert.alert('Error', 'Cannot unfollow: invalid user id');
+      return;
+    }
+
+    try {
+      const res: any = await unfollowUser(userId).unwrap();
+      console.log('unfollowUser response:', res);
+      setFollowState('not-following');
+    } catch (e: any) {
+      console.log('unfollowUser error:', e);
+      const msg =
+        e?.data?.error || e?.data?.message || e?.message || 'Unfollow failed';
+      Alert.alert('Error', msg);
+    }
+  };
 
   let followButton = null;
   if (followState === 'following') {
     followButton = (
       <TouchableOpacity
-        onPress={async () => {
-          await unfollowUser(userId);
-          setFollowState('not-following');
-        }}
+        onPress={handleUnfollowPress}
         style={styles.unfollowButton}
         disabled={unfollowLoading}
       >
@@ -55,26 +117,20 @@ export const UserProfileScreen = () => {
     );
   } else if (followState === 'pending') {
     followButton = (
-      <View style={styles.pendingButton}>
-        <Text style={styles.pendingText}>Requested</Text>
+      <View style={styles.requestedButton}>
+        <Text style={styles.requestedText}>Requested</Text>
       </View>
     );
   } else {
     followButton = (
       <TouchableOpacity
-        onPress={async () => {
-          if (profile.is_private) {
-            await sendFriendRequest(userId);
-            setFollowState('pending');
-          } else {
-            await followUser(userId);
-            setFollowState('following');
-          }
-        }}
+        onPress={handleFollowPress}
         style={styles.followButton}
-        disabled={followLoading || requestLoading}
+        disabled={followLoading}
       >
-        <Text style={styles.followText}>{profile.is_private ? 'Request' : 'Follow'}</Text>
+        <Text style={styles.followText}>
+          {profile.is_private ? 'Request' : 'Follow'}
+        </Text>
       </TouchableOpacity>
     );
   }
@@ -83,37 +139,42 @@ export const UserProfileScreen = () => {
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          {/* Avatar */}
           {profile.profile_pic ? (
             <Image source={{ uri: profile.profile_pic }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>{displayUsername.charAt(0).toUpperCase()}</Text>
+              <Text style={styles.avatarText}>
+                {displayUsername.charAt(0).toUpperCase()}
+              </Text>
             </View>
           )}
-          {/* Followers */}
+
           <TouchableOpacity
-            onPress={() => navigation.navigate('FollowListModal', { userId, type: 'followers' })}
+            onPress={() =>
+              navigation.navigate('FollowListModal', { userId, type: 'followers' })
+            }
             style={styles.countBox}
           >
             <Text style={styles.countNum}>{followers.length}</Text>
             <Text style={styles.countLabel}>Followers</Text>
           </TouchableOpacity>
-          {/* Following */}
+
           <TouchableOpacity
-            onPress={() => navigation.navigate('FollowListModal', { userId, type: 'following' })}
+            onPress={() =>
+              navigation.navigate('FollowListModal', { userId, type: 'following' })
+            }
             style={styles.countBox}
           >
             <Text style={styles.countNum}>{following.length}</Text>
             <Text style={styles.countLabel}>Following</Text>
           </TouchableOpacity>
         </View>
+
         <Text style={styles.username}>@{displayUsername}</Text>
         {profile.full_name ? <Text style={styles.fullName}>{profile.full_name}</Text> : null}
         {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
         {followButton}
       </View>
-      {/* Posts grid etc can go here */}
     </ScrollView>
   );
 };
@@ -122,8 +183,23 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#e6e6e6' },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  avatar: { width: 80, height: 80, borderRadius: 40, marginRight: 16, borderWidth: 1, borderColor: '#eee' },
-  avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#67a4ec', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginRight: 16,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  avatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#67a4ec',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
   avatarText: { color: '#fff', fontSize: 36, fontWeight: 'bold' },
   username: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
   fullName: { fontSize: 16, color: '#666', marginBottom: 2 },
@@ -131,11 +207,35 @@ const styles = StyleSheet.create({
   countBox: { alignItems: 'center', marginHorizontal: 10 },
   countNum: { fontSize: 18, fontWeight: 'bold' },
   countLabel: { fontSize: 13, color: '#888' },
-  followButton: { marginTop: 8, backgroundColor: '#3897f0', borderRadius: 4, paddingVertical: 7, alignItems: 'center' },
+
+  followButton: {
+    marginTop: 8,
+    backgroundColor: '#3897f0',
+    borderRadius: 4,
+    paddingVertical: 7,
+    alignItems: 'center',
+  },
   followText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  unfollowButton: { marginTop: 8, backgroundColor: '#fff', borderColor: '#bbb', borderWidth: 1, borderRadius: 4, paddingVertical: 7, alignItems: 'center' },
+
+  unfollowButton: {
+    marginTop: 8,
+    backgroundColor: '#fff',
+    borderColor: '#bbb',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingVertical: 7,
+    alignItems: 'center',
+  },
   unfollowText: { color: '#333', fontWeight: '600', fontSize: 15 },
-  pendingButton: { marginTop: 8, backgroundColor: '#eee', borderRadius: 4, paddingVertical: 7, alignItems: 'center' },
-  pendingText: { color: '#aaa', fontWeight: '600', fontSize: 15 },
+
+  requestedButton: {
+    marginTop: 8,
+    backgroundColor: '#efefef',
+    borderRadius: 4,
+    paddingVertical: 7,
+    alignItems: 'center',
+  },
+  requestedText: { color: '#999', fontWeight: '600', fontSize: 15 },
+
   errorText: { fontSize: 16, textAlign: 'center', marginTop: 24, color: 'red' },
 });

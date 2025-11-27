@@ -1,3 +1,4 @@
+# models.py
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -6,12 +7,11 @@ from datetime import timedelta
 
 User = get_user_model()
 
+User = get_user_model()
 
-# 1. User Profile (extends the default User)
+# 1. User Profile extends User (user ID, username, email fixed)
 class UserProfile(models.Model):
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="profile"
-    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     full_name = models.CharField(max_length=100, blank=True)
     bio = models.TextField(max_length=500, blank=True)
     profile_pic = models.URLField(blank=True, null=True)
@@ -20,23 +20,15 @@ class UserProfile(models.Model):
     def __str__(self):
         return self.user.username
 
-
 # 2. Follow / Friend system
 class Follower(models.Model):
-    # 'following' is the related name on the user who is doing the following
-    follower = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="following"
-    )
-    # 'followers' is the related name on the user who is being followed
-    followed = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="followers"
-    )
+    follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name="following")
+    followed = models.ForeignKey(User, on_delete=models.CASCADE, related_name="followers")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ("follower", "followed")
         indexes = [models.Index(fields=["followed"])]
-
 
 class FriendRequest(models.Model):
     STATUS_CHOICES = [
@@ -44,25 +36,20 @@ class FriendRequest(models.Model):
         ("accepted", "Accepted"),
         ("rejected", "Rejected"),
     ]
-    sender = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="sent_requests"
-    )
-    receiver = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="received_requests"
-    )
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sent_requests")
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name="received_requests")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         indexes = [models.Index(fields=["receiver", "status"])]
 
-
 # 3. Posts
 class Post(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="posts")
     caption = models.TextField(blank=True)
-    media_urls = models.JSONField(default=list)      # list of URLs
+    media_urls = models.JSONField(default=list)  # list of URLs
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -71,7 +58,6 @@ class Post(models.Model):
             models.Index(fields=["-created_at"]),
             models.Index(fields=["user", "-created_at"]),
         ]
-
 
 # 4. Post interactions (Likes & Comments)
 class Like(models.Model):
@@ -145,3 +131,4 @@ class StoryView(models.Model):
 
     class Meta:
         unique_together = ("story", "viewer")
+

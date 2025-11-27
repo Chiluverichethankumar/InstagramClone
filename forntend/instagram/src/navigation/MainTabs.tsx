@@ -8,8 +8,9 @@ import Icon from 'react-native-vector-icons/Ionicons';
 
 const Tab = createBottomTabNavigator();
 
-export const MainTabs = () => {
+export const MainTabs: React.FC = () => {
   const { theme } = useAppTheme();
+
   return (
     <Tab.Navigator
       initialRouteName="Home"
@@ -23,17 +24,15 @@ export const MainTabs = () => {
         tabBarIcon: ({ color, focused }) => {
           let iconName = 'home-outline';
           if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
-          else if (route.name === 'Explore') iconName = focused ? 'search' : 'search-outline';
-          else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
+          else if (route.name === 'Explore')
+            iconName = focused ? 'search' : 'search-outline';
+          else if (route.name === 'Profile')
+            iconName = focused ? 'person' : 'person-outline';
           return <Icon name={iconName} size={24} color={color} />;
         },
       })}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeStack}
-        options={{ tabBarLabel: 'Home' }}
-      />
+      <Tab.Screen name="Home" component={HomeStack} options={{ tabBarLabel: 'Home' }} />
       <Tab.Screen
         name="Explore"
         component={UserSearchScreen}
@@ -41,10 +40,9 @@ export const MainTabs = () => {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileStack} // << DON'T use MyProfileScreen here!
+        component={ProfileStack}
         options={{ tabBarLabel: 'Profile' }}
       />
- 
     </Tab.Navigator>
   );
 };

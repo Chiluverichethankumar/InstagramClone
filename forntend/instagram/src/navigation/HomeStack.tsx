@@ -3,27 +3,32 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { UserProfileScreen } from '../screens/profile/UserProfileScreen';
 import { FollowListModal } from '../screens/user/FollowListModal';
-import { NotificationsTab } from '../screens/notifications/NotificationsTab';
+import NotificationsTab from '../screens/notifications/NotificationsTab';
 import { TouchableOpacity, View, Text } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../theme/ThemeContext';
 
 const Stack = createNativeStackNavigator();
 
-export const HomeStack = () => {
+export const HomeStack: React.FC = () => {
   const { theme } = useAppTheme();
+
   return (
     <Stack.Navigator>
       <Stack.Screen
-        name="Home"
+        name="HomeFeed"
         component={HomeScreen}
         options={({ navigation }) => ({
           headerTitle: () => (
-            <Text style={{
-              fontFamily: 'Billabong',
-              fontSize: 30,
-              color: theme.colors.text,
-            }}>Instagram</Text>
+            <Text
+              style={{
+                fontFamily: 'Billabong',
+                fontSize: 30,
+                color: theme.colors.text,
+              }}
+            >
+              Instagram
+            </Text>
           ),
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>

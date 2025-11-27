@@ -60,12 +60,10 @@ class AuthViewSet(viewsets.ViewSet):
         full_name = request.data.get("full_name", "")
 
         if not all([username, email, password]):
-            return Response({"error": "Username, email, and password are required."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Username, email, and password are required."}, status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(Q(username=username) | Q(email=email)).exists():
-            return Response({"error": "User with this username or email already exists."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "User with this username or email already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             user = User.objects.create_user(username=username, email=email, password=password)
@@ -115,21 +113,36 @@ class AuthViewSet(viewsets.ViewSet):
             return Response({"error": "Invalid session ID."},
                             status=status.HTTP_401_UNAUTHORIZED)
 
+    # @action(detail=False, methods=['get'])
+    # def me(self, request):
+    #     session_key = request.headers.get("X-Session-ID")
+    #     if not session_key:
+    #         return Response({"error": "Session ID missing."},
+    #                         status=status.HTTP_401_UNAUTHORIZED)
+
+    #     user = get_user_from_session_key(session_key)
+    #     if not user:
+    #         return Response({"error": "Invalid or expired session. Please log in again."},
+    #                         status=status.HTTP_401_UNAUTHORIZED)
+
+    #     return Response({
+    #         "message": "User authenticated.",
+    #         "user": UserSerializer(user).data
+    #     })
     @action(detail=False, methods=['get'])
     def me(self, request):
         session_key = request.headers.get("X-Session-ID")
         if not session_key:
-            return Response({"error": "Session ID missing."},
-                            status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": "Session ID missing."}, status=status.HTTP_401_UNAUTHORIZED)
 
         user = get_user_from_session_key(session_key)
         if not user:
-            return Response({"error": "Invalid or expired session. Please log in again."},
-                            status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": "Invalid or expired session."}, status=status.HTTP_401_UNAUTHORIZED)
 
+        serializer = UserProfileSerializer(user.profile, context={'request': request})
         return Response({
             "message": "User authenticated.",
-            "user": UserSerializer(user).data
+            "user": serializer.data
         })
 
 # ===================================================================
@@ -201,21 +214,34 @@ class FollowerViewSet(viewsets.ViewSet):
         
         return Response({'message': 'Unfollowed successfully.'})
 
+    # @action(detail=True, methods=['get'])
+    # def followers(self, request, pk=None):
+    #     user = get_object_or_404(User, id=pk)
+    #     # Assuming the Follower model uses 'following' as related name on the User model
+    #     followers = User.objects.filter(following__followed=user)
+    #     serializer = UserSerializer(followers, many=True)
+    #     return Response(serializer.data, status=200)
+
+    # @action(detail=True, methods=['get'])
+    # def following(self, request, pk=None):
+    #     user = get_object_or_404(User, id=pk)
+    #     # Assuming the Follower model uses 'followers' as related name on the User model
+    #     following = User.objects.filter(followers__follower=user)
+    #     serializer = UserSerializer(following, many=True)
+    #     return Response(serializer.data, status=200)
     @action(detail=True, methods=['get'])
     def followers(self, request, pk=None):
         user = get_object_or_404(User, id=pk)
-        # Assuming the Follower model uses 'following' as related name on the User model
         followers = User.objects.filter(following__followed=user)
-        serializer = UserSerializer(followers, many=True)
-        return Response(serializer.data, status=200)
+        serializer = UserProfileSerializer([u.profile for u in followers], many=True, context={'request': request})
+        return Response(serializer.data)
 
     @action(detail=True, methods=['get'])
     def following(self, request, pk=None):
         user = get_object_or_404(User, id=pk)
-        # Assuming the Follower model uses 'followers' as related name on the User model
         following = User.objects.filter(followers__follower=user)
-        serializer = UserSerializer(following, many=True)
-        return Response(serializer.data, status=200)
+        serializer = UserProfileSerializer([u.profile for u in following], many=True, context={'request': request})
+        return Response(serializer.data)
 
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset = UserProfile.objects.select_related('user')
@@ -230,10 +256,6 @@ class ProfileViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['patch'], url_path='privacy')
     def privacy(self, request):
-        """
-        PATCH /api/profiles/privacy/
-        Body: { "is_private": true } or { "is_private": false }
-        """
         profile = request.user.profile
         is_private = request.data.get('is_private', None)
         if is_private is None:
@@ -241,7 +263,14 @@ class ProfileViewSet(viewsets.ModelViewSet):
         profile.is_private = bool(is_private)
         profile.save()
         return Response({'is_private': profile.is_private}, status=status.HTTP_200_OK)
- 
+
+    def perform_update(self, serializer):
+        # Prevent editing user fixed fields
+        if 'user' in serializer.validated_data:
+            raise ValidationError("User core fields (id, username, email) cannot be modified")
+        serializer.save()
+
+        
 class FriendRequestViewSet(viewsets.ModelViewSet):
     """
     Manages the lifecycle of private follow requests (accept, reject, list).
@@ -519,12 +548,23 @@ class MessageViewSet(BaseModelViewSet):
 
     @action(detail=True, methods=['post'])
     def mark_read(self, request, pk=None):
+        """
+        Marks a specific message as read.
+        Only the receiver of the message is allowed to perform this action.
+        """
         msg = get_object_or_404(Message, id=pk)
+
         if msg.receiver != request.user:
-            return Response({'error': 'Not receiver'}, status=403)
-        msg.is_read = True
-        msg.save()
-        return Response({'read': True, 'message_id': str(msg.id)})
+            return Response({'error': 'Only the recipient can mark this message as read.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        if not msg.is_read:
+            msg.is_read = True
+            msg.read_at = timezone.now()
+            msg.save(update_fields=['is_read', 'read_at'])
+
+        return Response({'message': 'Message marked as read.'}, status=status.HTTP_200_OK)
+
 
     @action(detail=False, methods=['get'], url_path='chat/(?P<user_id>[^/.]+)')
     def chat(self, request, user_id=None):
@@ -634,3 +674,4 @@ class UserSearchView(generics.ListAPIView):
         return User.objects.filter(
             Q(username__icontains=q) | Q(profile__full_name__icontains=q)
         ).distinct()[:20]
+

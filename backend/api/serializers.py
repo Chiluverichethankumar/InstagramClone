@@ -1,3 +1,5 @@
+# serializers.py
+
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (
@@ -11,31 +13,26 @@ User = get_user_model()
 
 # 1️⃣ User Serializer
 class UserSerializer(serializers.ModelSerializer):
-    """Basic serializer for User objects, nested in other serializers."""
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name']
-
+        read_only_fields = ['id', 'username', 'email']  # FIXED fields cannot be changed via API
 
 # 2️⃣ UserProfile Serializer
 class UserProfileSerializer(serializers.ModelSerializer):
-    """Includes basic user info and all profile fields."""
     user = UserSerializer(read_only=True)
-    # Read-only field to show if the user is following the profile owner (requires context['request'])
-    is_following = serializers.SerializerMethodField() 
+    is_following = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
         fields = '__all__'
-        
+
     def get_is_following(self, obj):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
-        # Checks if the requesting user is following this profile's owner (obj.user)
         return Follower.objects.filter(follower=request.user, followed=obj.user).exists()
-
-
+    
 # 3️⃣ Friend Request Serializer
 class FriendRequestSerializer(serializers.ModelSerializer):
     """Serializer for private follow requests, nesting User details for clarity."""
@@ -123,3 +120,4 @@ class StorySerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated:
             return False
         return StoryView.objects.filter(story=obj, viewer=request.user).exists()
+
