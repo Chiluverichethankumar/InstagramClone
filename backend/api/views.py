@@ -244,33 +244,107 @@ class FollowerViewSet(viewsets.ViewSet):
         return Response(serializer.data)
 
 class ProfileViewSet(viewsets.ModelViewSet):
+    """
+    Handles user profile viewing and updates (full_name, bio, is_private).
+    Also includes a dedicated action for profile picture upload.
+    """
     queryset = UserProfile.objects.select_related('user')
     serializer_class = UserProfileSerializer
     lookup_field = 'user__username'
     permission_classes = [IsAuthenticated]
+    
+    # Allow file uploads only for the dedicated upload_picture action, 
+    # but include them here to be available for custom actions.
+    parser_classes = [MultiPartParser, FormParser] 
 
+    # -----------------------------------------------------------
+    # Standard CRUD Operations (Handles text fields like bio, full_name, is_private)
+    # -----------------------------------------------------------
+
+    def get_object(self):
+        """Override to always return the profile of the current user for standard updates."""
+        # For standard update/partial_update (PUT/PATCH), ensure it's the requesting user's profile
+        if self.action in ['update', 'partial_update']:
+            return self.request.user.profile
+        # For lookup by username (retrieve), use the lookup_field
+        return super().get_object()
+    
+    def perform_update(self, serializer):
+        """Custom update logic for PATCH/PUT."""
+        # Prevent editing user fixed fields on the profile endpoint (optional but safe)
+        if any(field in serializer.validated_data for field in ['user', 'id']):
+             raise ValidationError("Core user fields cannot be modified via this endpoint.")
+        
+        # Ensure we don't try to save file data via the JSON endpoint
+        if 'profile_pic' in serializer.validated_data:
+            raise ValidationError("Use the 'upload-picture' endpoint to change the profile photo.")
+
+        serializer.save()
+        
+    # -----------------------------------------------------------
+    # Custom Actions
+    # -----------------------------------------------------------
+        
     @action(detail=False, methods=['get'])
     def me(self, request):
-        serializer = self.get_serializer(request.user.profile)
+        """Returns the profile of the currently authenticated user."""
+        serializer = self.get_serializer(request.user.profile, context={'request': request})
         return Response(serializer.data)
+
+    @action(detail=False, methods=['patch', 'post'], url_path='upload-picture')
+    def upload_picture(self, request):
+        """Dedicated endpoint to upload/change a user's profile picture."""
+        profile = request.user.profile
+        # Expecting 'profile_pic' field from client (matching frontend FormData key)
+        file = request.FILES.get('profile_pic') 
+        
+        if not file:
+            return Response({"error": "No profile picture file was provided. Expected field 'profile_pic'."}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        # 1. Handle file type validation
+        mime_type, _ = guess_type(file.name)
+        if not mime_type or not mime_type.startswith('image/'):
+            return Response({"error": "Only image files are allowed."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 2. Upload file to Supabase
+        try:
+            # Generate a unique path using user ID
+            ext = os.path.splitext(file.name)[1].lower()
+            # It's good practice to use a static name here like 'profile_pic' 
+            # if you want to reuse the same URL and overwrite the file on update.
+            path = f"profiles/{request.user.id}/profile_pic{ext}" 
+            new_url = upload_to_supabase(file, path)
+            
+            if not new_url:
+                 return Response({"error": "Supabase upload failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        except Exception as e:
+            return Response({"error": f"File upload failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # 3. Update the profile model
+        # You can optionally delete the old file here if the path generation changes.
+        profile.profile_pic = new_url
+        profile.save(update_fields=['profile_pic'])
+        
+        # 4. Return updated profile data
+        return Response(self.get_serializer(profile, context={'request': request}).data, status=status.HTTP_200_OK)
+
 
     @action(detail=False, methods=['patch'], url_path='privacy')
     def privacy(self, request):
+        """Toggle account privacy (is_private)."""
         profile = request.user.profile
         is_private = request.data.get('is_private', None)
+        
         if is_private is None:
-            return Response({'error': 'is_private required'}, status=400)
+            return Response({'error': 'is_private boolean field is required'}, status=400)
+            
         profile.is_private = bool(is_private)
         profile.save()
+        
         return Response({'is_private': profile.is_private}, status=status.HTTP_200_OK)
 
-    def perform_update(self, serializer):
-        # Prevent editing user fixed fields
-        if 'user' in serializer.validated_data:
-            raise ValidationError("User core fields (id, username, email) cannot be modified")
-        serializer.save()
-
-        
 class FriendRequestViewSet(viewsets.ModelViewSet):
     """
     Manages the lifecycle of private follow requests (accept, reject, list).

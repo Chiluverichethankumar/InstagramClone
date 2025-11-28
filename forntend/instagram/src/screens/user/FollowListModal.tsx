@@ -57,6 +57,7 @@
 
 // src/screens/user/FollowListModal.tsx
 import React from 'react';
+import Icon from 'react-native-vector-icons/Ionicons';
 import {
   SafeAreaView,
   FlatList,
@@ -96,16 +97,17 @@ export const FollowListModal = () => {
 
   const title = type === 'followers' ? 'Followers' : 'Following';
 
-  React.useLayoutEffect(() => {
+React.useLayoutEffect(() => {
     navigation.setOptions({
-      title: `${username}'s ${title}`,
-      headerLeft: () => (
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
-          <Text style={{ color: '#0095f6', fontSize: 17 }}>Close</Text>
-        </TouchableOpacity>
-      ),
+        title: `${username}'s ${title}`,
+        // 🌟 CHANGED: Replace Text with an Icon component
+        headerLeft: () => (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 0, paddingRight: 15, paddingVertical: 5 }}>
+                <Icon name="arrow-back-outline" size={28} color="#222" /> 
+            </TouchableOpacity>
+        ),
     });
-  }, [navigation, username, title]);
+}, [navigation, username, title]);
 
   // Loading state
   if (isLoading) {

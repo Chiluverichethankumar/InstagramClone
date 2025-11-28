@@ -21,35 +21,35 @@
 
 
 // D:\Projects\InstagramApp\Codes\forntend\instagram\src\navigation\AppNavigator.tsx
-
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabs } from './MainTabs';
 import { UserProfileScreen } from '../screens/profile/UserProfileScreen';
-
-// 🔹 New Import: Import the screen component you just created
 import { FollowersListScreen } from '../screens/profile/FollowersListScreen'; 
+
+// 🌟 NEW IMPORT
+import { EditProfileScreen } from '../screens/profile/EditProfileScreen'; 
 
 const RootStack = createNativeStackNavigator();
 
 export const AppNavigator = () => (
-  <RootStack.Navigator screenOptions={{ headerShown: false }}>
-    <RootStack.Screen name="MainTabs" component={MainTabs} />
-    
-    {/* 🔸 The standard user profile screen you navigate to */}
-    <RootStack.Screen name="UserProfile" component={UserProfileScreen} />
+    <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="MainTabs" component={MainTabs} />
+        <RootStack.Screen name="UserProfile" component={UserProfileScreen} />
+        
+        {/* 🌟 NEW SCREEN */}
+        <RootStack.Screen name="EditProfile" component={EditProfileScreen} />
 
-    {/* 🔹 Follower/Following List Modal - Using the name expected by MyProfileScreen.tsx */}
-    <RootStack.Screen
-      name="FollowersList" // Renamed from FollowListModal/FollowListModal 
-      component={FollowersListScreen} // Mapped to the new component
-      options={{
-        presentation: 'modal',
-        headerShown: true,
-        title: '',
-        headerStyle: { backgroundColor: '#fff' },
-        headerTitleAlign: 'center',
-      }}
-    />
-  </RootStack.Navigator>
+        {/* MODAL */}
+        <RootStack.Screen
+            name="FollowersList" 
+            component={FollowersListScreen}
+            options={{
+                presentation: 'modal',
+                headerShown: true,
+                title: '',
+                // ... (rest of modal options)
+            }}
+        />
+    </RootStack.Navigator>
 );
