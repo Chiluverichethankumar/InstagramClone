@@ -8,7 +8,9 @@ export const api = createApi({
     baseUrl: 'https://instagramclone-hiah.onrender.com/api/',
     prepareHeaders: async (headers) => {
       const sessionId = await AsyncStorage.getItem('session_id');
-      if (sessionId) headers.set('X-Session-ID', sessionId);
+      if (sessionId) {
+        headers.set('X-Session-ID', sessionId);
+      }
       headers.set('Content-Type', 'application/json');
       return headers;
     },
@@ -26,6 +28,7 @@ export const api = createApi({
     'FriendRequests',
   ],
   endpoints: (builder) => ({
+    // ================= Auth =================
     signup: builder.mutation<AuthResponse, SignupPayload>({
       query: (body) => ({ url: 'auth/signup/', method: 'POST', body }),
       invalidatesTags: ['Auth'],
@@ -38,27 +41,35 @@ export const api = createApi({
 
     logout: builder.mutation<{ success: boolean }, void>({
       query: () => ({ url: 'auth/logout/', method: 'POST' }),
-      invalidatesTags: ['Auth'],
+      invalidatesTags: ['Auth', 'Me', 'UserProfile'],
     }),
 
-    getMe: builder.query<User, void>({
+    // NOTE: backend auth/me now returns the *profile* in "user"
+    // {
+    //   message: "...",
+    //   user: { id, user: {...}, is_private, posts_count, followers_count, following_count, ... }
+    // }
+    getMe: builder.query<any, void>({
       query: () => ({ url: 'auth/me/', method: 'GET' }),
       transformResponse: (response: any) => response.user,
       providesTags: ['Me', 'Auth'],
     }),
 
+    // ================= Profiles =================
     // /profiles/{username}/
     getUserProfileByUsername: builder.query<any, string>({
       query: (username) => ({ url: `profiles/${username}/`, method: 'GET' }),
       providesTags: ['UserProfile'],
     }),
 
+    // Optional: fetch raw user by id if needed elsewhere
     getUser: builder.query<User, number>({
+      // there is no /users/ route in your urls, so keep this only if you actually added one.
       query: (id) => ({ url: `users/${id}/`, method: 'GET' }),
       providesTags: ['UserProfile'],
     }),
 
-    // followers/following lists
+    // followers/following lists from FollowerViewSet
     getFollowers: builder.query<User[], number>({
       query: (id) => ({ url: `followers/${id}/followers/`, method: 'GET' }),
       providesTags: ['Followers'],
@@ -81,14 +92,15 @@ export const api = createApi({
       invalidatesTags: ['Followers', 'Following', 'UserProfile', 'FriendRequests'],
     }),
 
+    // ================= Search =================
     // GET /search/users/?q=
     searchUsers: builder.query<any, string>({
       query: (q) => `search/users/?q=${encodeURIComponent(q)}`,
       keepUnusedDataFor: 60,
     }),
 
-    // Friend‑requests API (used by notifications)
-    // POST /friend-requests/  { receiver: <id> } – you can keep this if you need it directly
+    // ================= Friend Requests =================
+    // POST /friend-requests/  { receiver: <id> }
     sendFriendRequest: builder.mutation<any, number>({
       query: (id) => ({
         url: 'friend-requests/',
@@ -134,7 +146,8 @@ export const api = createApi({
       providesTags: ['FriendRequests'],
     }),
 
-    // Feed posts
+    // ================= Posts / Feed =================
+    // GET /posts/feed/?page=&limit=
     getPosts: builder.query<
       { posts: Post[]; nextPage?: number },
       { page?: number; limit?: number }
@@ -177,5 +190,5 @@ export const {
   useSentRequestsQuery,
   useFriendsQuery,
   useGetPostsQuery,
-  useUpdatePrivacyMutation,
+  useUpdatePrivacyMutation
 } = api;

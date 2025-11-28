@@ -41,7 +41,9 @@ export const UserSearchScreen: React.FC = () => {
         </View>
       )}
       <View style={styles.info}>
-        <Text style={[styles.username, { color: theme.colors.text }]}>{item.username}</Text>
+        <Text style={[styles.username, { color: theme.colors.text }]}>
+          {item.username}
+        </Text>
         <Text style={[styles.fullName, { color: theme.colors.textSecondary }]}>
           {item.profile?.full_name || ''}
         </Text>

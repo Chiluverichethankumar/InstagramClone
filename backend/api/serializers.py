@@ -18,20 +18,46 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'first_name', 'last_name']
         read_only_fields = ['id', 'username', 'email']  # FIXED fields cannot be changed via API
 
-# 2️⃣ UserProfile Serializer
+# 2️⃣ UserProfile Serializer (FIXED: Added count methods)
 class UserProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     is_following = serializers.SerializerMethodField()
+    
+    # 🌟 ADDED: Fields to calculate and display the counts
+    posts_count = serializers.SerializerMethodField()
+    followers_count = serializers.SerializerMethodField()
+    following_count = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
-        fields = '__all__'
+        # 🌟 UPDATED: Include the new count fields
+        fields = [
+            'id', 'user', 'full_name', 'bio', 'profile_pic', 'is_private', 
+            'is_following', 'posts_count', 'followers_count', 'following_count' 
+        ]
+        read_only_fields = ['id', 'is_following', 'posts_count', 'followers_count', 'following_count']
 
     def get_is_following(self, obj):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
+        # 'obj.user' is the User instance associated with this UserProfile
         return Follower.objects.filter(follower=request.user, followed=obj.user).exists()
+
+    # 🌟 NEW METHOD: Get number of posts for this user
+    def get_posts_count(self, obj):
+        return Post.objects.filter(user=obj.user).count()
+
+    # 🌟 NEW METHOD: Get number of users following this user
+    def get_followers_count(self, obj):
+        # We count entries in the Follower table where this user (obj.user) is the 'followed'
+        return Follower.objects.filter(followed=obj.user).count()
+
+    # 🌟 NEW METHOD: Get number of users this user is following
+    def get_following_count(self, obj):
+        # We count entries in the Follower table where this user (obj.user) is the 'follower'
+        return Follower.objects.filter(follower=obj.user).count()
+    
     
 # 3️⃣ Friend Request Serializer
 class FriendRequestSerializer(serializers.ModelSerializer):

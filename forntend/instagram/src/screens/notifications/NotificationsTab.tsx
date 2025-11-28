@@ -9,11 +9,13 @@ import {
 
 const NotificationsTab: React.FC = () => {
   const navigation = useNavigation<any>();
+
   const {
     data: requests = [],
     isLoading,
     refetch,
   } = usePendingRequestsQuery();
+
   const [acceptRequest, { isLoading: accepting }] = useAcceptFriendRequestMutation();
   const [rejectRequest, { isLoading: rejecting }] = useRejectFriendRequestMutation();
 
@@ -22,7 +24,10 @@ const NotificationsTab: React.FC = () => {
       await acceptRequest(id).unwrap();
       await refetch();
     } catch (e: any) {
-      Alert.alert('Error', e?.data?.error || e?.data?.message || 'Failed to accept request');
+      Alert.alert(
+        'Error',
+        e?.data?.error || e?.data?.message || 'Failed to accept request',
+      );
     }
   };
 
@@ -31,7 +36,10 @@ const NotificationsTab: React.FC = () => {
       await rejectRequest(id).unwrap();
       await refetch();
     } catch (e: any) {
-      Alert.alert('Error', e?.data?.error || e?.data?.message || 'Failed to reject request');
+      Alert.alert(
+        'Error',
+        e?.data?.error || e?.data?.message || 'Failed to reject request',
+      );
     }
   };
 

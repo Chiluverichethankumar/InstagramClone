@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { useFriendsQuery } from '../../store/api/services';
 
-export const FriendsScreen = () => {
+export const FriendsScreen: React.FC = () => {
   const { data: friends = [], isLoading } = useFriendsQuery();
 
   if (isLoading) return <Text style={styles.loading}>Loading...</Text>;
@@ -12,7 +12,7 @@ export const FriendsScreen = () => {
       <Text style={styles.header}>Mutual Friends</Text>
       <FlatList
         data={friends}
-        keyExtractor={f => f.id.toString()}
+        keyExtractor={(f) => f.id.toString()}
         renderItem={({ item }) => (
           <View style={styles.friendRow}>
             <Text style={styles.name}>{item.username}</Text>
@@ -30,5 +30,5 @@ const styles = StyleSheet.create({
   loading: { textAlign: 'center', marginTop: 28 },
   friendRow: { paddingVertical: 12, borderBottomWidth: 1, borderColor: '#eee' },
   name: { fontSize: 17 },
-  empty: { textAlign: 'center', color: '#888', marginTop: 24 }
+  empty: { textAlign: 'center', color: '#888', marginTop: 24 },
 });
