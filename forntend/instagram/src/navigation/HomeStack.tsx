@@ -1,8 +1,8 @@
+// src/navigation/HomeStack.tsx — KEEP YOUR OLD CODE (remove duplicate modal)
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { UserProfileScreen } from '../screens/profile/UserProfileScreen';
-import { FollowListModal } from '../screens/user/FollowListModal';
 import NotificationsTab from '../screens/notifications/NotificationsTab';
 import { TouchableOpacity, View, Text } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -48,15 +48,11 @@ export const HomeStack: React.FC = () => {
         options={{ headerTitle: '' }}
       />
       <Stack.Screen
-        name="FollowListModal"
-        component={FollowListModal}
-        options={{ presentation: 'modal', headerTitle: 'Followers / Following' }}
-      />
-      <Stack.Screen
         name="NotificationsTab"
         component={NotificationsTab}
         options={{ headerTitle: 'Requests' }}
       />
+      {/* Remove FollowListModal — it's in AppNavigator now */}
     </Stack.Navigator>
   );
 };

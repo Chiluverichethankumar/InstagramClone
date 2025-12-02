@@ -1,47 +1,56 @@
+// src/navigation/MainTabs.tsx — FINAL CORRECT VERSION
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { HomeStack } from '../navigation/HomeStack';
-import { UserSearchScreen } from '../screens/user/UserSearchScreen';
-import { ProfileStack } from '../screens/profile/ProfileStack';
-import { useAppTheme } from '../theme/ThemeContext';
+import { HomeStack } from './HomeStack';
+import { ProfileStack } from '../screens/profile/ProfileStack'; // ← CORRECT PATH
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useAppTheme } from '../theme/ThemeContext';
+import { UserSearchScreen } from '../screens/user/UserSearchScreen';
 
 const Tab = createBottomTabNavigator();
 
-export const MainTabs: React.FC = () => {
+export const MainTabs = () => {
   const { theme } = useAppTheme();
 
   return (
     <Tab.Navigator
-      initialRouteName="Home"
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
         tabBarStyle: {
           backgroundColor: theme.colors.tabBarBackground,
+          borderTopWidth: 1,
           borderTopColor: theme.colors.border,
-          elevation: 0,
         },
-        tabBarIcon: ({ color, focused }) => {
-          let iconName = 'home-outline';
-          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
-          else if (route.name === 'Explore')
-            iconName = focused ? 'search' : 'search-outline';
-          else if (route.name === 'Profile')
-            iconName = focused ? 'person' : 'person-outline';
-          return <Icon name={iconName} size={24} color={color} />;
-        },
-      })}
+        tabBarActiveTintColor: theme.colors.tabBarActive,
+        tabBarInactiveTintColor: theme.colors.tabBarInactive,
+      }}
     >
-      <Tab.Screen name="Home" component={HomeStack} options={{ tabBarLabel: 'Home' }} />
       <Tab.Screen
-        name="Explore"
-        component={UserSearchScreen}
-        options={{ tabBarLabel: 'Search' }}
+        name="HomeTab"
+        component={HomeStack}
+        options={{
+          tabBarLabel: () => null,
+          tabBarIcon: ({ color }) => <Icon name="home-outline" size={28} color={color} />,
+        }}
       />
+
       <Tab.Screen
-        name="Profile"
+        name="SearchTab"
+        component={UserSearchScreen}
+        options={{
+          tabBarLabel: () => null,
+          tabBarIcon: ({ color }) => <Icon name="search-outline" size={28} color={color} />,
+        }}
+      />
+
+      {/* THIS IS THE KEY — MUST BE "ProfileTab" */}
+      <Tab.Screen
+        name="ProfileTab"
         component={ProfileStack}
-        options={{ tabBarLabel: 'Profile' }}
+        options={{
+          tabBarLabel: () => null,
+          tabBarIcon: ({ color }) => <Icon name="person-outline" size={28} color={color} />,
+        }}
       />
     </Tab.Navigator>
   );

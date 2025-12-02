@@ -1,3 +1,4 @@
+//  D:\Projects\InstagramApp\Codes\forntend\instagram\src\screens\settings\AccountPrivacyScreen.tsx
 import React from 'react';
 import { View, Text, Switch, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useGetMeQuery, useUpdatePrivacyMutation } from '../../store/api/services';

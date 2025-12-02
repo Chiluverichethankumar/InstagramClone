@@ -1,3 +1,4 @@
+//  D:\Projects\InstagramApp\Codes\forntend\instagram\src\screens\auth\SignupScreen.tsx
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
 import { Input } from '../../components/common/Input';

@@ -113,22 +113,6 @@ class AuthViewSet(viewsets.ViewSet):
             return Response({"error": "Invalid session ID."},
                             status=status.HTTP_401_UNAUTHORIZED)
 
-    # @action(detail=False, methods=['get'])
-    # def me(self, request):
-    #     session_key = request.headers.get("X-Session-ID")
-    #     if not session_key:
-    #         return Response({"error": "Session ID missing."},
-    #                         status=status.HTTP_401_UNAUTHORIZED)
-
-    #     user = get_user_from_session_key(session_key)
-    #     if not user:
-    #         return Response({"error": "Invalid or expired session. Please log in again."},
-    #                         status=status.HTTP_401_UNAUTHORIZED)
-
-    #     return Response({
-    #         "message": "User authenticated.",
-    #         "user": UserSerializer(user).data
-    #     })
     @action(detail=False, methods=['get'])
     def me(self, request):
         session_key = request.headers.get("X-Session-ID")
@@ -142,7 +126,7 @@ class AuthViewSet(viewsets.ViewSet):
         serializer = UserProfileSerializer(user.profile, context={'request': request})
         return Response({
             "message": "User authenticated.",
-            "user": serializer.data
+            "user":  serializer.data
         })
 
 # ===================================================================
@@ -214,21 +198,6 @@ class FollowerViewSet(viewsets.ViewSet):
         
         return Response({'message': 'Unfollowed successfully.'})
 
-    # @action(detail=True, methods=['get'])
-    # def followers(self, request, pk=None):
-    #     user = get_object_or_404(User, id=pk)
-    #     # Assuming the Follower model uses 'following' as related name on the User model
-    #     followers = User.objects.filter(following__followed=user)
-    #     serializer = UserSerializer(followers, many=True)
-    #     return Response(serializer.data, status=200)
-
-    # @action(detail=True, methods=['get'])
-    # def following(self, request, pk=None):
-    #     user = get_object_or_404(User, id=pk)
-    #     # Assuming the Follower model uses 'followers' as related name on the User model
-    #     following = User.objects.filter(followers__follower=user)
-    #     serializer = UserSerializer(following, many=True)
-    #     return Response(serializer.data, status=200)
     @action(detail=True, methods=['get'])
     def followers(self, request, pk=None):
         user = get_object_or_404(User, id=pk)

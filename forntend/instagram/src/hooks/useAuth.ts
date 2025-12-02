@@ -1,3 +1,4 @@
+// src/hooks/useAuth.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   useSignupMutation,
@@ -13,11 +14,13 @@ interface AuthResult {
 }
 
 export const useAuth = () => {
-  const [signup, { isLoading: isSignupLoading, error: signupError }] = useSignupMutation();
-  const [login, { isLoading: isLoginLoading, error: loginError }] = useLoginMutation();
-  const [logout, { isLoading: isLogoutLoading, error: logoutError }] = useLogoutMutation();
+  const [signup, { isLoading: isSignupLoading, error: signupError }] =
+    useSignupMutation();
+  const [login, { isLoading: isLoginLoading, error: loginError }] =
+    useLoginMutation();
+  const [logout, { isLoading: isLogoutLoading, error: logoutError }] =
+    useLogoutMutation();
 
-  // Handle signup with error catching
   const handleSignup = async (payload: SignupPayload): Promise<AuthResult> => {
     try {
       const result: AuthResponse = await signup(payload).unwrap();
@@ -30,7 +33,6 @@ export const useAuth = () => {
     }
   };
 
-  // Handle login with error catching
   const handleLogin = async (payload: LoginPayload): Promise<AuthResult> => {
     try {
       const result: AuthResponse = await login(payload).unwrap();
@@ -44,15 +46,14 @@ export const useAuth = () => {
     }
   };
 
-  // Handle logout with error catching and API state reset
   const handleLogout = async (): Promise<void> => {
     try {
       await logout().unwrap();
     } catch (_e) {
-      // Ignore server errors on logout
+      // ignore
     }
     await AsyncStorage.removeItem('session_id');
-    api.util.resetApiState(); // clears cached user data, triggers UI update
+    api.util.resetApiState();
   };
 
   return {

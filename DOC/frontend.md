@@ -289,3 +289,74 @@ The application wrapper.
 
 <Provider store={store}><PersistGate ...><ThemeProvider><RootNavigator /></ThemeProvider></PersistGate></Provider>
 
+
+
+
+
+Top Level
+├── android/ # Native Android project
+├── ios/ # Native iOS project
+├── node_modules/ # Dependencies
+├── app.json # App config
+├── App.tsx # Root component
+├── babel.config.js # Babel config
+├── index.js # Entry point
+├── metro.config.js # Metro bundler config
+├── jest.config.js # Jest testing config
+└── src/ # All app code & assets
+    ├── assets/ # Static assets
+    │ └── avatar-placeholder.png
+    │
+    ├── components/ # Reusable UI components
+    │ ├── common/ # Shared UI (buttons, inputs, loaders)
+    │ └── posts/ # PostCard, PostList, etc.
+    │
+    ├── hooks/ # Custom hooks
+    │ └── useAuth.ts
+    │
+    ├── navigation/ # Navigation setup
+    │ ├── AppNavigator.tsx # Decides AuthStack vs MainTabs
+    │ ├── AuthStack.tsx
+    │ ├── HomeStack.tsx
+    │ ├── SettingsStack.tsx
+    │ └── ProfileStack.tsx
+    │
+    ├── screens/ # Feature screens
+    │ ├── auth/
+    │ │ ├── LoginScreen.tsx
+    │ │ └── SignupScreen.tsx
+    │ │
+    │ ├── home/
+    │ │ └── HomeScreen.tsx
+    │ │
+    │ ├── notifications/
+    │ │ ├── FriendsScreen.tsx
+    │ │ └── NotificationsTab.tsx
+    │ │
+    │ ├── profile/
+    │ │ ├── MyProfileScreen.tsx
+    │ │ ├── ProfileScreen.tsx
+    │ │ ├── UserProfileScreen.tsx
+    │ │ └── ProfileStack.tsx
+    │ │ └── _components/
+    │ │ └── AvatarHeader.tsx
+    │ │
+    │ ├── settings/
+    │ │ ├── SettingsScreen.tsx
+    │ │ └── AccountPrivacyScreen.tsx
+    │ │
+    │ └── user/
+    │ ├── UserSearchScreen.tsx
+    │ └── FollowListModal.tsx
+    │
+    ├── store/ # State management
+    │ ├── api/
+    │ │ └── services.ts # RTK Query endpoints
+    │ └── store.ts # Redux store setup
+    │
+    ├── theme/ # Theming
+    │ ├── theme.ts # Colors, spacing, typography
+    │ └── ThemeContext.tsx # Theme provider/hook
+    │
+    └── types/ # Global TypeScript types
+        └── index.ts # User, Post, AuthResponse, Navigation params, etc.

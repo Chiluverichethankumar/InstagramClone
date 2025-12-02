@@ -1,322 +1,325 @@
-// D:\Projects\InstagramApp\Codes\forntend\instagram\src\screens\profile\MyProfileScreen.tsx
-
+// src/screens/profile/MyProfileScreen.tsx
 import React from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  FlatList,
+  Dimensions,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useGetMeQuery } from '../../store/api/services';
+import { useGetMeQuery, useGetUserPostsQuery } from '../../store/api/services';
 import { Loading } from '../../components/common/Loading';
 import { useAppTheme } from '../../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-// Custom Button Component for better styling and reusability
-const ProfileButton: React.FC<{ title: string; onPress: () => void; isPrimary?: boolean }> = ({
-  title,
-  onPress,
-  isPrimary = false,
-}) => {
-  const { theme } = useAppTheme();
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        styles.profileButton,
-        {
-          // Using hardcoded colors for typical Instagram look, but you can revert to theme
-          backgroundColor: isPrimary ? '#0095f6' : theme.colors.background,
-          borderColor: isPrimary ? '#0095f6' : '#dbdbdb', // Light grey border
-        },
-      ]}
-    >
-      <Text
-        style={[
-          styles.profileButtonText,
-          { color: isPrimary ? theme.colors.background : theme.colors.text },
-        ]}
-      >
-        {title}
-      </Text>
-    </TouchableOpacity>
-  );
-};
-
-// Component to hold the primary actions for the logged-in user
-const ProfileActionButtons: React.FC<{ navigation: any }> = ({ navigation }) => {
-  const { theme } = useAppTheme();
-  return (
-    <View style={styles.actionButtonsContainer}>
-      {/* Edit Profile Button */}
-      <ProfileButton
-        title="Edit Profile"
-        onPress={() => {
-          // 🚀 FIX: UNCOMMENT AND ENABLE NAVIGATION TO EDIT PROFILE SCREEN
-          navigation.navigate('EditProfile');
-        }}
-      />
-      {/* Share Profile Button */}
-      <ProfileButton
-        title="Share Profile"
-        onPress={() => {
-          // Implement share functionality
-          console.log('Share Profile action');
-        }}
-      />
-      {/* Small Action Button (often for adding contacts or discovery) */}
-      <TouchableOpacity
-        style={[styles.smallActionButton, { borderColor: theme.colors.border }]}
-        onPress={() => {
-          console.log('Add/Discover action');
-        }}
-      >
-        <Icon name="person-add-outline" size={18} color={theme.colors.text} />
-      </TouchableOpacity>
-    </View>
-  );
-};
+const { width } = Dimensions.get('window');
+const POST_SIZE = width / 3;
 
 export const MyProfileScreen: React.FC = () => {
-  const { theme } = useAppTheme();
-  const navigation = useNavigation<any>();
+  const { theme } = useAppTheme();
+  const navigation = useNavigation<any>();
+  const { data: profile, isLoading: profileLoading } = useGetMeQuery();
+  const { data: postsData, isLoading: postsLoading } = useGetUserPostsQuery({ limit: 30 });
 
-  // Fetch the logged-in user's profile data using useGetMeQuery
-  const {
-    data: profile,
-    isLoading,
-    isError,
-  } = useGetMeQuery(); // No arguments needed
+  if (profileLoading || postsLoading) return <Loading />;
 
-  if (isLoading) return <Loading />;
+  if (!profile) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+        <Text style={{ color: theme.colors.text }}>Please log in</Text>
+      </View>
+    );
+  }
 
-  if (isError || !profile) {
-    return (
-      <View style={styles.container}>
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          Please log in to view your profile.
-        </Text>
-      </View>
-    );
-  }
+  const user = profile.user || profile;
+  const posts = postsData?.posts || [];
 
-  // Ensure we have the user ID for subsequent actions/queries
-  const userId = profile.user?.id || profile.id;
+  const stats = [
+    { count: posts.length, label: 'posts' },
+    { count: user.followers_count || 0, label: 'followers', type: 'followers' },
+    { count: user.following_count || 0, label: 'following', type: 'following' },
+  ];
 
-  const displayUsername = profile.user?.username || profile.username || '';
-  const isPrivate = !!profile.is_private;
+  const openFollowersList = (type: 'followers' | 'following') => {
+    navigation.navigate('FollowersList', {
+      userId: user.id,
+      username: user.username,
+      type,
+    });
+  };
 
-  const postsCount = profile.posts_count ?? 0;
-  const followersCount = profile.followers_count ?? 0;
-  const followingCount = profile.following_count ?? 0;
-  
-  // Get full_name and bio from the top-level profile object
-  const fullName = profile.full_name || profile.user?.full_name || '';
-  const bio = profile.bio || profile.user?.bio || '';
-  const profilePic = profile.profile_pic || profile.user?.profile_pic;
+  const renderPost = ({ item }: any) => (
+    <TouchableOpacity style={styles.postItem}>
+      <Image source={{ uri: item.media_url }} style={styles.postImage} />
+      <View style={styles.postOverlay}>
+        <View style={styles.postStats}>
+          <Icon name="heart" size={16} color="white" />
+          <Text style={styles.postStatText}>{item.likes_count || 0}</Text>
+          <Icon name="chatbubble" size={16} color="white" style={{ marginLeft: 12 }} />
+          <Text style={styles.postStatText}>{item.comments_count || 0}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 
+  return (
+    <ScrollView style={{ backgroundColor: theme.colors.background }}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          {user.is_private && (
+            <Icon name="lock-closed" size={18} color={theme.colors.text} style={{ marginRight: 6 }} />
+          )}
+          <Text style={[styles.username, { color: theme.colors.text }]}>{user.username}</Text>
+          <Icon name="chevron-down" size={18} color={theme.colors.text} style={{ marginLeft: 4 }} />
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity>
+            <Icon name="add-circle-outline" size={28} color={theme.colors.text} style={{ marginRight: 16 }} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
+            <Icon name="menu-outline" size={28} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
+      </View>
 
-  return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
-      {/* Header with username and settings */}
-      <View style={styles.headerIcons}>
-        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-          {isPrivate && (
-            <Icon
-              name="lock-closed-outline"
-              size={20}
-              color="#555"
-              style={{ marginRight: 6 }}
-            />
-          )}
-          <Text style={[styles.usernameHeader, { color: theme.colors.text }]}>{displayUsername}</Text>
-          <Icon
-            name="chevron-down-outline"
-            size={18}
-            color="#555"
-            style={{ marginLeft: 6 }}
-          />
-        </View>
-        <View style={{ flexDirection: 'row' }}>
-          {/* New Post Button */}
-          <TouchableOpacity onPress={() => console.log('New Post')}>
-            <Icon
-              name="add-square-outline"
-              size={27}
-              color={theme.colors.text}
-              style={{ marginHorizontal: 8 }}
-            />
-          </TouchableOpacity>
-          {/* Menu/Settings Button */}
-          <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
-            <Icon
-              name="menu-outline"
-              size={27}
-              color={theme.colors.text}
-              style={{ marginHorizontal: 4 }}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* Profile Info */}
+      <View style={styles.profileInfo}>
+        <Image
+          source={
+            user.profile_pic
+              ? { uri: user.profile_pic }
+              : require('../../assets/avatar-placeholder.png')
+          }
+          style={styles.avatar}
+        />
 
-      {/* Avatar + stats row */}
-      <View style={styles.profileInfo}>
-        <Image
-          source={
-            profilePic
-              ? { uri: profilePic }
-              : require('../../assets/avatar-placeholder.png')
-          }
-          style={styles.avatar}
-        />
-        <View style={styles.statsContainer}>
-          <View style={styles.statBox}>
-            <Text style={[styles.statNum, { color: theme.colors.text }]}>{postsCount}</Text>
-            <Text style={styles.statLabel}>Posts</Text>
-          </View>
-          {/* Followers Navigation */}
-          <TouchableOpacity
-            style={styles.statBox}
-            onPress={() => navigation.navigate('FollowersList', { userId: userId, username: displayUsername, type: 'followers' })}>
-            <Text style={[styles.statNum, { color: theme.colors.text }]}>{followersCount}</Text>
-            <Text style={styles.statLabel}>Followers</Text>
-          </TouchableOpacity>
-          {/* Following Navigation */}
-          <TouchableOpacity
-            style={styles.statBox}
-            onPress={() => navigation.navigate('FollowersList', { userId: userId, username: displayUsername, type: 'following' })}>
-            <Text style={[styles.statNum, { color: theme.colors.text }]}>{followingCount}</Text>
-            <Text style={styles.statLabel}>Following</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+        <View style={styles.stats}>
+          {stats.map((stat, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.stat}
+              onPress={() => stat.type && openFollowersList(stat.type as any)}
+            >
+              <Text style={[styles.statCount, { color: theme.colors.text }]}>{stat.count}</Text>
+              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>{stat.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
 
-      {/* Name and bio */}
-      <Text style={[styles.fullName, { color: theme.colors.text }]}>
-        {fullName}
-      </Text>
-      {bio ? (
-        <Text style={[styles.bio, { color: theme.colors.textSecondary }]}>
-          {bio}
-        </Text>
-      ) : null}
+      {/* Bio */}
+      <View style={styles.bioContainer}>
+        {user.full_name && (
+          <Text style={[styles.fullName, { color: theme.colors.text }]}>{user.full_name}</Text>
+        )}
+        {user.bio ? (
+          <Text style={[styles.bio, { color: theme.colors.text }]}>{user.bio}</Text>
+        ) : (
+          <Text style={[styles.bio, { color: theme.colors.textSecondary, fontStyle: 'italic' }]}>
+            No bio yet.
+          </Text>
+        )}
+      </View>
 
-      {/* ACTION BUTTONS (Edit Profile, Share Profile) */}
-      <ProfileActionButtons navigation={navigation} />
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        <TouchableOpacity
+          style={[styles.editButton, { backgroundColor: theme.colors.card }]}
+          onPress={() => navigation.navigate('EditProfile')}
+        >
+          <Text style={[styles.editButtonText, { color: theme.colors.text }]}>Edit Profile</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.editButton, { backgroundColor: theme.colors.card }]}>
+          <Text style={[styles.editButtonText, { color: theme.colors.text }]}>Share Profile</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.addFriendButton, { borderColor: theme.colors.border }]}>
+          <Icon name="person-add-outline" size={20} color={theme.colors.text} />
+        </TouchableOpacity>
+      </View>
 
-      {/* Spacer */}
-      <View style={{ height: 16 }} />
+      {/* Tabs */}
+      <View style={[styles.tabs, { borderTopColor: theme.colors.border }]}>
+        <View style={styles.tabActive}>
+          <Icon name="grid-outline" size={26} color={theme.colors.primary} />
+        </View>
+        <View style={styles.tab}>
+          <Icon name="person-circle-outline" size={26} color={theme.colors.textSecondary} />
+        </View>
+      </View>
 
-      {/* Placeholder for post grid/tabs */}
-      <View style={styles.tabsContainer}>
-        <Icon name="grid-outline" size={25} color={theme.colors.text} style={styles.tabIcon} />
-        <Icon name="person-circle-outline" size={25} color={theme.colors.textSecondary} style={styles.tabIcon} />
-      </View>
-
-      <View style={{ height: 500 }} />
-
-    </ScrollView>
-  );
+      {/* Posts Grid */}
+      {posts.length === 0 ? (
+        <View style={styles.noPosts}>
+          <View style={styles.noPostsIcon}>
+            <Icon name="camera-outline" size={64} color={theme.colors.textSecondary} />
+          </View>
+          <Text style={[styles.noPostsText, { color: theme.colors.text }]}>No Posts Yet</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={posts}
+          numColumns={3}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderPost}
+          style={styles.postsGrid}
+        />
+      )}
+    </ScrollView>
+  );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 18,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-  },
-  usernameHeader: {
-    fontSize: 19,
-    fontWeight: 'bold',
-    color: '#222', // Overridden by inline theme color in component
-  },
-  profileInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 97,
-    height: 97,
-    borderRadius: 48.5,
-    marginRight: 20,
-    borderWidth: 2,
-    borderColor: '#eee',
-  },
-  statsContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statBox: {
-    alignItems: 'center',
-  },
-  statNum: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#222', // Overridden by inline theme color in component
-  },
-  statLabel: {
-    fontSize: 13,
-    color: '#888',
-  },
-  fullName: {
-    paddingHorizontal: 20,
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    marginTop: 4,
-  },
-  bio: {
-    paddingHorizontal: 20,
-    fontSize: 14,
-    lineHeight: 18,
-    marginBottom: 4,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 24,
-  },
-  // --- Styles for Buttons ---
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginTop: 10,
-  },
-  profileButton: {
-    flex: 1,
-    marginRight: 8,
-    height: 30,
-    borderRadius: 6,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  smallActionButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 6,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // --- Styles for Tabs ---
-  tabsContainer: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    justifyContent: 'space-around',
-  },
-  tabIcon: {
-    paddingVertical: 10,
-  }
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  username: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileInfo: {
+    flexDirection: 'row',
+    padding: 20,
+  },
+  avatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    marginRight: 28,
+  },
+  stats: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  stat: {
+    alignItems: 'center',
+  },
+  statCount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  statLabel: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  bioContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  fullName: {
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  bio: {
+    marginTop: 4,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  editButton: {
+    flex: 1,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#dbdbdb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  editButtonText: {
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  addFriendButton: {
+    width: 36,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabs: {
+    flexDirection: 'row',
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  tabActive: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#000',
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  noPosts: {
+    alignItems: 'center',
+    paddingTop: 60,
+  },
+  noPostsIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  noPostsText: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  postsGrid: {
+    paddingHorizontal: 0.5,
+  },
+  postItem: {
+    width: POST_SIZE,
+    height: POST_SIZE,
+    margin: 0.5,
+  },
+  postImage: {
+    width: '100%',
+    height: '100%',
+  },
+  postOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  postStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  postStatText: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginLeft: 6,
+    fontSize: 14,
+  },
 });
