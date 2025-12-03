@@ -395,18 +395,20 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
 # 4. Posts
 # ===================================================================
 class PostViewSet(BaseModelViewSet):
-    queryset = Post.objects.select_related('user', 'user__profile').order_by('-created_at')
+    queryset = Post.objects.select_related('user', 'user__profile') \
+                           .order_by('-created_at')
     serializer_class = PostSerializer
-    parser_classes = [MultiPartParser, FormParser]  # Required for file uploads
+    parser_classes = [MultiPartParser, FormParser]
 
+    # --------------------------------------------------------
+    # CREATE POST (upload media to Supabase)
+    # --------------------------------------------------------
     def create(self, request, *args, **kwargs):
         files = request.FILES.getlist('media')
 
         if not files:
-            return Response(
-                {"error": "At least one media file is required to create a post."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Media files required."},
+                            status=400)
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -414,7 +416,7 @@ class PostViewSet(BaseModelViewSet):
         with transaction.atomic():
             post = serializer.save(user=request.user, media_urls=[])
 
-        # 🔹 Upload files to Supabase
+        # Upload each media file
         for f in files:
             ext = os.path.splitext(f.name)[1].lower()
             path = f"posts/{request.user.id}/{uuid.uuid4()}{ext}"
@@ -423,8 +425,11 @@ class PostViewSet(BaseModelViewSet):
                 post.media_urls.append(url)
 
         post.save(update_fields=['media_urls'])
-        return Response(self.get_serializer(post).data, status=status.HTTP_201_CREATED)
+        return Response(self.get_serializer(post).data, status=201)
 
+    # --------------------------------------------------------
+    # DELETE POST
+    # --------------------------------------------------------
     def destroy(self, request, *args, **kwargs):
         post = self.get_object()
         paths = []
@@ -433,7 +438,7 @@ class PostViewSet(BaseModelViewSet):
             try:
                 path = url.split(f"/{SUPABASE_BUCKET}/")[-1]
                 paths.append(path)
-            except Exception:
+            except:
                 pass
 
         if paths:
@@ -441,64 +446,95 @@ class PostViewSet(BaseModelViewSet):
 
         return super().destroy(request, *args, **kwargs)
 
+    # --------------------------------------------------------
+    # FEED — posts of people I follow
+    # --------------------------------------------------------
     @action(detail=False, methods=['get'])
     def feed(self, request):
-        following = Follower.objects.filter(follower=request.user).values_list('followed', flat=True)
-        posts = Post.objects.filter(user_id__in=list(following) + [request.user.id]) \
-                            .select_related('user', 'user__profile') \
-                            .order_by('-created_at')
-        page = self.paginate_queryset(posts)
-        return self.get_paginated_response(self.get_serializer(page, many=True).data)
+        following = Follower.objects.filter(
+            follower=request.user
+        ).values_list('followed', flat=True)
 
+        posts = Post.objects.filter(
+            user_id__in=list(following) + [request.user.id]
+        ).select_related('user', 'user__profile') \
+         .order_by('-created_at')
+
+        page = self.paginate_queryset(posts)
+        return self.get_paginated_response(
+            self.get_serializer(page, many=True).data
+        )
+
+    # --------------------------------------------------------
+    # USER POSTS
+    # --------------------------------------------------------
     @action(detail=False, methods=['get'], url_path='user/(?P<user_id>[^/.]+)')
     def user_posts(self, request, user_id=None):
         user = get_object_or_404(User, id=user_id)
-        posts = Post.objects.filter(user=user).select_related('user', 'user__profile').order_by('-created_at')
-        page = self.paginate_queryset(posts)
-        return self.get_paginated_response(self.get_serializer(page, many=True).data)
+        posts = Post.objects.filter(user=user).order_by('-created_at')
 
+        page = self.paginate_queryset(posts)
+        return self.get_paginated_response(
+            self.get_serializer(page, many=True).data
+        )
 
 # ===================================================================
-# 5. Post Interactions – Likes & Comments
+# 5. LIKE VIEWSET
 # ===================================================================
 class LikeViewSet(viewsets.ViewSet):
     authentication_classes = [SessionIDAuthentication]
     permission_classes = [IsAuthenticated]
 
     def _is_follower(self, request_user, post_user):
-        return Follower.objects.filter(follower=request_user, followed=post_user).exists()
+        return Follower.objects.filter(
+            follower=request_user,
+            followed=post_user
+        ).exists()
 
+    # --------------------------------------------------------
+    # LIKE / UNLIKE
+    # --------------------------------------------------------
     @action(detail=True, methods=['post'])
     def toggle(self, request, pk=None):
         post = get_object_or_404(Post, id=pk)
 
-        # Check follow permission
-        if post.user != self.request.user and not Follower.objects.filter(
-                follower=self.request.user, followed=post.user).exists():
-            raise PermissionDenied("Only followers can comment on this post.")
+        if post.user != request.user and not self._is_follower(request.user, post.user):
+            raise PermissionDenied("Only followers can like this post.")
 
-        like, created = Like.objects.get_or_create(post=post, user=request.user)
+        like, created = Like.objects.get_or_create(
+            user=request.user,
+            post=post
+        )
+
         if not created:
             like.delete()
             return Response({'liked': False})
+
         return Response({'liked': True})
 
+    # --------------------------------------------------------
+    # LIST OF LIKES
+    # --------------------------------------------------------
     @action(detail=True, methods=['get'])
     def list_likes(self, request, pk=None):
         post = get_object_or_404(Post, id=pk)
 
-        # Check follow permission
         if post.user != request.user and not self._is_follower(request.user, post.user):
-            raise PermissionDenied("Only followers can view likes on this post.")
+            raise PermissionDenied("Only followers can see likes.")
 
-        users = [like.user for like in post.likes.all()]
+        users = [l.user for l in post.likes.all()]
         return Response(UserSerializer(users, many=True).data)
 
-
+# ===================================================================
+# 6. COMMENTS
+# ===================================================================
 class CommentViewSet(BaseModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
 
+    # --------------------------------------------------------
+    # LIST COMMENTS (post_id required)
+    # --------------------------------------------------------
     def get_queryset(self):
         user = self.request.user
         post_id = self.request.query_params.get('post_id')
@@ -506,39 +542,38 @@ class CommentViewSet(BaseModelViewSet):
         if post_id:
             post = get_object_or_404(Post, id=post_id)
 
-            # Only followers or owner can view comments
-            if post.user != user and not Follower.objects.filter(follower=user, followed=post.user).exists():
-                raise PermissionDenied("Only followers can view comments on this post.")
+            if post.user != user and not Follower.objects.filter(
+                follower=user, followed=post.user
+            ).exists():
+                raise PermissionDenied("Only followers can view comments.")
 
-            # Return top-level comments
             return Comment.objects.filter(post_id=post_id, parent=None)
 
-        # Return comments by current user
         return Comment.objects.filter(user=user)
 
+    # --------------------------------------------------------
+    # ADD COMMENT
+    # --------------------------------------------------------
     def perform_create(self, serializer):
         post = serializer.validated_data.get('post')
-        parent = serializer.validated_data.get('parent')  # get parent comment if provided
+        parent = serializer.validated_data.get('parent')
 
-        if post is None:
-            raise ValidationError({"post": "This field is required."})
+        if not post:
+            raise ValidationError({"post": "post is required"})
 
-        # Only followers or owner can comment
+        # Permission check
         if post.user != self.request.user and not Follower.objects.filter(
-                follower=self.request.user, followed=post.user).exists():
-            raise PermissionDenied("Only followers can comment on this post.")
+            follower=self.request.user, followed=post.user
+        ).exists():
+            raise PermissionDenied("Only followers can comment.")
 
-        # If parent is provided, check if parent comment exists and belongs to same post
-        if parent:
-            if parent.post != post:
-                raise ValidationError({"parent": "Parent comment must belong to the same post."})
+        if parent and parent.post != post:
+            raise ValidationError({"parent": "Parent comment must belong to same post."})
 
         serializer.save(user=self.request.user)
 
-
-
 # ===================================================================
-# 6. Direct Messages
+# 7. DIRECT MESSAGES (CLEAN & FIXED)
 # ===================================================================
 class MessageViewSet(BaseModelViewSet):
     authentication_classes = [SessionIDAuthentication]
@@ -546,6 +581,9 @@ class MessageViewSet(BaseModelViewSet):
     serializer_class = MessageSerializer
     parser_classes = [MultiPartParser, FormParser]
 
+    # --------------------------------------------------------
+    # LIST MESSAGES / CHAT WITH USER
+    # --------------------------------------------------------
     def get_queryset(self):
         user = self.request.user
         other_id = self.kwargs.get("user_id")
@@ -560,28 +598,23 @@ class MessageViewSet(BaseModelViewSet):
             Q(sender=user) | Q(receiver=user)
         ).order_by('-created_at')
 
+    # --------------------------------------------------------
+    # SEND MESSAGE
+    # --------------------------------------------------------
     def perform_create(self, serializer):
-        # validate receiver exists
         receiver_id = self.request.data.get('receiver')
         if not receiver_id:
-            raise ValidationError({"receiver": "Receiver id is required."})
-        receiver = get_object_or_404(User, id=receiver_id)
+            raise ValidationError({"receiver": "Receiver is required"})
 
-        # Optional: restrict messaging to followers (uncomment if you want this)
-        # if not Follower.objects.filter(follower=self.request.user, followed=receiver).exists():
-        #     raise PermissionDenied("You can only send messages to people you follow.")
+        receiver = get_object_or_404(User, id=receiver_id)
 
         file = self.request.FILES.get('media')
         media_url = None
 
         if file:
-            try:
-                ext = os.path.splitext(file.name)[1].lower()
-                path = f"messages/{self.request.user.id}/{uuid.uuid4()}{ext}"
-                media_url = upload_to_supabase(file, path)
-            except Exception as e:
-                # return friendly JSON error instead of 500
-                raise ValidationError({"media": f"File upload failed: {str(e)}"})
+            ext = os.path.splitext(file.name)[1].lower()
+            path = f"messages/{self.request.user.id}/{uuid.uuid4()}{ext}"
+            media_url = upload_to_supabase(file, path)
 
         serializer.save(
             sender=self.request.user,
@@ -589,86 +622,106 @@ class MessageViewSet(BaseModelViewSet):
             media_url=media_url
         )
 
+    # --------------------------------------------------------
+    # MARK AS READ
+    # --------------------------------------------------------
     @action(detail=True, methods=['post'])
     def mark_read(self, request, pk=None):
-        """
-        Marks a specific message as read.
-        Only the receiver of the message is allowed to perform this action.
-        """
         msg = get_object_or_404(Message, id=pk)
 
         if msg.receiver != request.user:
-            return Response({'error': 'Only the recipient can mark this message as read.'},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'Not allowed'}, status=403)
 
         if not msg.is_read:
             msg.is_read = True
             msg.read_at = timezone.now()
             msg.save(update_fields=['is_read', 'read_at'])
 
-        return Response({'message': 'Message marked as read.'}, status=status.HTTP_200_OK)
+        return Response({'message': 'Message marked read'})
 
-
+    # --------------------------------------------------------
+    # CHAT — FULL CONVERSATION WITH A USER
+    # --------------------------------------------------------
     @action(detail=False, methods=['get'], url_path='chat/(?P<user_id>[^/.]+)')
     def chat(self, request, user_id=None):
         other = get_object_or_404(User, id=user_id)
+
         msgs = Message.objects.filter(
             Q(sender=request.user, receiver=other) |
             Q(sender=other, receiver=request.user)
         ).order_by('created_at')
+
         return Response(self.get_serializer(msgs, many=True).data)
 
 
+
 # ===================================================================
-# 7. Stories
+# 8. STORIES
 # ===================================================================
 
 class StoryViewSet(BaseModelViewSet):
-    queryset = Story.objects.filter(expires_at__gt=timezone.now()).select_related('user')
+    queryset = Story.objects.filter(
+        expires_at__gt=timezone.now()
+    ).select_related('user')
     serializer_class = StorySerializer
     parser_classes = [MultiPartParser, FormParser]
 
+    # --------------------------------------------------------
+    # UPLOAD STORY
+    # --------------------------------------------------------
     def perform_create(self, serializer):
         file = self.request.FILES.get('file') or self.request.FILES.get('media')
         if not file:
-            raise ValidationError({"media": "This field is required."})
+            raise ValidationError({"media": "media file required"})
 
-        # Detect file type
         mime_type, _ = guess_type(file.name)
         if not mime_type or not mime_type.startswith(('image/', 'video/')):
-            raise ValidationError({"media": "Only image or video files are allowed."})
+            raise ValidationError({"media": "Only image/video allowed"})
 
         media_type = 'image' if mime_type.startswith('image/') else 'video'
 
-        # Upload file
-        try:
-            path = f"stories/{self.request.user.id}/{uuid.uuid4()}{os.path.splitext(file.name)[1]}"
-            media_url = upload_to_supabase(file, path)
-        except Exception as e:
-            raise ValidationError({"media": f"Story upload failed: {str(e)}"})
+        path = f"stories/{self.request.user.id}/{uuid.uuid4()}{os.path.splitext(file.name)[1]}"
+        media_url = upload_to_supabase(file, path)
 
-        # Set expiration 24 hours from now
         expires_at = timezone.now() + timedelta(hours=24)
 
-        serializer.save(user=self.request.user, media_url=media_url, media_type=media_type, expires_at=expires_at)
+        serializer.save(
+            user=self.request.user,
+            media_url=media_url,
+            media_type=media_type,
+            expires_at=expires_at
+        )
 
+    # --------------------------------------------------------
+    # LIST STORIES OF FOLLOWING USERS + SELF
+    # --------------------------------------------------------
     @action(detail=False, methods=['get'])
     def list_active(self, request):
-        following = Follower.objects.filter(follower=request.user).values_list('followed', flat=True)
-        user_ids = list(following) + [request.user.id]
-        stories = Story.objects.filter(user__in=user_ids, expires_at__gt=timezone.now()) \
-                               .order_by('user', '-created_at')
-        return Response(self.get_serializer(stories, many=True, context={'request': request}).data)
+        following = Follower.objects.filter(
+            follower=request.user
+        ).values_list('followed', flat=True)
 
+        user_ids = list(following) + [request.user.id]
+
+        stories = Story.objects.filter(
+            user__in=user_ids,
+            expires_at__gt=timezone.now()
+        ).order_by('user', '-created_at')
+
+        return Response(
+            self.get_serializer(stories, many=True).data
+        )
+
+    # --------------------------------------------------------
+    # MARK STORY VIEWED
+    # --------------------------------------------------------
     @action(detail=True, methods=['post'])
     def mark_viewed(self, request, pk=None):
         story = get_object_or_404(Story, id=pk)
 
-        # 🔹 Cannot view your own story as 'viewer'
         if story.user == request.user:
-            return Response({'message': 'You cannot mark your own story as viewed.'}, status=400)
+            return Response({'message': 'Cannot mark own story'}, status=400)
 
-        # 🔹 If already viewed, don't duplicate
         view, created = StoryView.objects.get_or_create(
             story=story,
             viewer=request.user
@@ -676,12 +729,13 @@ class StoryViewSet(BaseModelViewSet):
 
         return Response({
             'viewed': True,
-            'is_new_view': created,
-            'story_id': pk,
+            'new': created,
             'total_views': StoryView.objects.filter(story=story).count()
         })
 
-
+    # --------------------------------------------------------
+    # VIEWERS LIST
+    # --------------------------------------------------------
     @action(detail=True, methods=['get'])
     def views(self, request, pk=None):
         story = get_object_or_404(Story, id=pk)
@@ -689,23 +743,23 @@ class StoryViewSet(BaseModelViewSet):
         users = User.objects.filter(id__in=viewers)
         return Response(UserSerializer(users, many=True).data)
 
-
-    @action(detail=False, methods=['post'])
-    def cleanup(self, request):
-        cleanup_expired_stories()
-        return Response({'cleaned': True})
-
+    # --------------------------------------------------------
+    # DELETE STORY
+    # --------------------------------------------------------
     @action(detail=True, methods=['delete'])
     def delete_story(self, request, pk=None):
         story = get_object_or_404(Story, id=pk)
+
         if story.user != request.user:
             return Response({'error': 'Not allowed'}, status=403)
+
         story.delete()
         return Response({'deleted': True})
 
 
+
 # ===================================================================
-# 8. User Search
+# 9. User Search
 # ===================================================================
 class UserSearchView(generics.ListAPIView):
     serializer_class = UserSerializer
