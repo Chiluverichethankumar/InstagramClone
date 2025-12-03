@@ -60,23 +60,30 @@ class UserProfileSerializer(serializers.ModelSerializer):
     
     
 # 3️⃣ Friend Request Serializer
+# serializers.py - FriendRequestSerializer
 class FriendRequestSerializer(serializers.ModelSerializer):
-    """Serializer for private follow requests, nesting User details for clarity."""
     sender = UserSerializer(read_only=True)
     receiver = UserSerializer(read_only=True)
+    
+    # 🌟 ADD THIS: Writable receiver field
+    receiver_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), 
+        write_only=True,
+        source='receiver'
+    )
 
     class Meta:
         model = FriendRequest
-        fields = ['id', 'sender', 'receiver', 'status', 'created_at']
+        fields = ['id', 'sender', 'receiver', 'receiver_id', 'status', 'created_at']
 
 
 # 4️⃣ Post Serializer
 class PostSerializer(serializers.ModelSerializer):
-    """Serializer for posts, including interaction counts."""
-    user = UserSerializer(read_only=True)
+    user = UserProfileSerializer(source='user.profile', read_only=True)  # <-- Updated
     likes_count = serializers.IntegerField(source='likes.count', read_only=True)
     comments_count = serializers.IntegerField(source='comments.count', read_only=True)
-    
+    has_liked = serializers.SerializerMethodField()
+
     # Check if the requesting user has liked this post
     has_liked = serializers.SerializerMethodField()
 
