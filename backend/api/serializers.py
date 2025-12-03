@@ -17,11 +17,13 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name']
         read_only_fields = ['id', 'username', 'email']  # FIXED fields cannot be changed via API
-
-# 2️⃣ UserProfile Serializer (FIXED: Added count methods)
+# 2️⃣ UserProfile Serializer (FIXED: Added count methods + is_requested)
 class UserProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     is_following = serializers.SerializerMethodField()
+    
+    # 🌟 ADD THIS FIELD:
+    is_requested = serializers.SerializerMethodField()
     
     # 🌟 ADDED: Fields to calculate and display the counts
     posts_count = serializers.SerializerMethodField()
@@ -30,19 +32,33 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        # 🌟 UPDATED: Include the new count fields
+        # 🌟 UPDATED: Include is_requested + count fields
         fields = [
             'id', 'user', 'full_name', 'bio', 'profile_pic', 'is_private', 
-            'is_following', 'posts_count', 'followers_count', 'following_count' 
+            'is_following', 'is_requested',  # ← ADD is_requested HERE
+            'posts_count', 'followers_count', 'following_count' 
         ]
-        read_only_fields = ['id', 'is_following', 'posts_count', 'followers_count', 'following_count']
+        read_only_fields = [
+            'id', 'is_following', 'is_requested',  # ← ADD is_requested HERE
+            'posts_count', 'followers_count', 'following_count'
+        ]
 
     def get_is_following(self, obj):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
-        # 'obj.user' is the User instance associated with this UserProfile
         return Follower.objects.filter(follower=request.user, followed=obj.user).exists()
+
+    # 🌟 ADD THIS METHOD - CHECKS FOR PENDING FRIEND REQUEST:
+    def get_is_requested(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return FriendRequest.objects.filter(
+            sender=request.user, 
+            receiver=obj.user, 
+            status='pending'
+        ).exists()
 
     # 🌟 NEW METHOD: Get number of posts for this user
     def get_posts_count(self, obj):
@@ -50,14 +66,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     # 🌟 NEW METHOD: Get number of users following this user
     def get_followers_count(self, obj):
-        # We count entries in the Follower table where this user (obj.user) is the 'followed'
         return Follower.objects.filter(followed=obj.user).count()
 
     # 🌟 NEW METHOD: Get number of users this user is following
     def get_following_count(self, obj):
-        # We count entries in the Follower table where this user (obj.user) is the 'follower'
         return Follower.objects.filter(follower=obj.user).count()
-    
+
     
 # 3️⃣ Friend Request Serializer
 # serializers.py - FriendRequestSerializer
