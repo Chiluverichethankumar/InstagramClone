@@ -327,6 +327,19 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
             Q(sender=self.request.user) | Q(receiver=self.request.user)
         ).select_related('sender__profile', 'receiver__profile')
 
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new friend request. Expects {receiver_id: user_id} in request body.
+        Automatically sets sender as the authenticated user.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Always set sender as current user
+        serializer.save(sender=request.user)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
         """
@@ -389,7 +402,6 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
         )
         friends = [fr.receiver if fr.sender == request.user else fr.sender for fr in accepted]
         return Response(UserSerializer(friends, many=True).data)
-
 
 # ===================================================================
 # 4. Posts
